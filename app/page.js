@@ -26,6 +26,18 @@ function monthDefaults() {
   const n = new Date(), p = (x) => String(x).padStart(2, "0");
   return { start: `${n.getFullYear()}-${p(n.getMonth() + 1)}-01`, end: `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}` };
 }
+function summarize(pages) {
+  return {
+    titleMissing: pages.filter((p) => p.titleFlag === "missing").length,
+    descMissing: pages.filter((p) => p.descFlag === "missing").length,
+    titleLong: pages.filter((p) => p.titleFlag === "long").length,
+    titleShort: pages.filter((p) => p.titleFlag === "short").length,
+    descLong: pages.filter((p) => p.descFlag === "long").length,
+    descShort: pages.filter((p) => p.descFlag === "short").length,
+    altIssues: pages.filter((p) => p.imgsNoAlt > 0).length,
+    ogMissing: pages.filter((p) => !p.ogOk).length,
+  };
+}
 
 function KVList({ rows }) {
   if (!rows || !rows.length) return <div className="muted small" style={{ padding: "8px 0" }}>No data for this period.</div>;
@@ -47,6 +59,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [lastOrigin, setLastOrigin] = useState("");
   const [dr, setDr] = useState(null);
+  const [crawl, setCrawl] = useState(null);
 
   // analytics
   const [gaState, setGaState] = useState({ loaded: false, configured: false, properties: [], error: "" });
@@ -72,7 +85,7 @@ export default function Page() {
 
   const run = async () => {
     if (!url.trim()) return;
-    setLoading(true); setError(""); setReport(null); setDr(null);
+    setLoading(true); setError(""); setReport(null); setDr(null); setCrawl(null);
     try {
       const r = await api("/api/audit", { method: "POST", body: JSON.stringify({ url }) });
       const d = await r.json();
@@ -86,6 +99,29 @@ export default function Page() {
         .then((x) => { if (x && x.configured !== false && typeof x.domainRating === "number") setDr(x.domainRating); })
         .catch(() => {});
     } catch (e) { setError(e.message || String(e)); } finally { setLoading(false); }
+  };
+
+  const crawlAll = async () => {
+    if (!report) return;
+    setCrawl({ running: true, total: 0, done: 0, pages: [], error: "" });
+    try {
+      const dr = await api("/api/audit/discover", { method: "POST", body: JSON.stringify({ url: report.finalUrl }) });
+      const dd = await dr.json();
+      if (!dr.ok) throw new Error(dd.error || "Discovery failed");
+      const urls = dd.urls || [];
+      if (!urls.length) { setCrawl({ running: false, total: 0, done: 0, pages: [], error: "No sitemap URLs found to crawl." }); return; }
+      const BATCH = 12;
+      let acc = [];
+      setCrawl({ running: true, total: urls.length, done: 0, pages: [], error: "" });
+      for (let i = 0; i < urls.length; i += BATCH) {
+        const batch = urls.slice(i, i + BATCH);
+        const pr = await api("/api/audit/pages", { method: "POST", body: JSON.stringify({ urls: batch }) });
+        const pd = await pr.json();
+        if (pr.ok && pd.pages) acc = acc.concat(pd.pages);
+        const done = Math.min(i + BATCH, urls.length);
+        setCrawl({ running: done < urls.length, total: urls.length, done, pages: acc, error: "" });
+      }
+    } catch (e) { setCrawl({ running: false, total: 0, done: 0, pages: [], error: e.message || String(e) }); }
   };
 
   const loadProperties = useCallback(async () => {
@@ -162,6 +198,9 @@ export default function Page() {
   }
 
   const ringStyle = report ? { background: `conic-gradient(var(--lime) ${report.score * 3.6}deg, var(--line) 0deg)` } : {};
+  const crawledPages = crawl && crawl.pages && crawl.pages.length ? crawl.pages : null;
+  const pageList = crawledPages || (report ? report.pages : []) || [];
+  const pageSummary = crawledPages ? summarize(crawledPages) : (report ? report.pageSummary : null);
   const usersDelta = ga ? ga.users.current - ga.users.previous : 0;
   const usersPctTxt = ga && ga.users.previous ? ((usersDelta / ga.users.previous) * 100).toFixed(0) + "%" : "—";
 
@@ -208,24 +247,34 @@ export default function Page() {
               ))}
             </>)}
 
-            {report.pages && report.pages.length > 0 && (<>
-              <div className="section-h">Per-page on-page SEO ({report.pages.length} pages crawled)</div>
-              {report.discovery && (
+            {pageList && pageList.length > 0 && (<>
+              <div className="section-h">Per-page on-page SEO ({pageList.length} pages{crawledPages ? " — full site" : " crawled"})</div>
+              {report.discovery && !crawledPages && (
                 <div className="muted small" style={{ marginBottom: 10 }}>
                   {report.discovery.source === "sitemap"
                     ? `Pages discovered from the XML sitemap${report.discovery.viaGsc ? " (via Search Console)" : ""}${report.discovery.total ? ` — ${report.discovery.total} URLs found, auditing up to ${report.pages.length}` : ""}.`
                     : "No sitemap found — pages discovered by following on-page links."}
                 </div>
               )}
-              <div className="tallies" style={{ marginBottom: 12 }}>
-                <span className="tally fail">{report.pageSummary.titleMissing} missing title</span>
-                <span className="tally fail">{report.pageSummary.descMissing} missing description</span>
-                <span className="tally warn">{report.pageSummary.titleLong + report.pageSummary.titleShort} title length</span>
-                <span className="tally warn">{report.pageSummary.descLong + report.pageSummary.descShort} description length</span>
-                <span className="tally warn">{report.pageSummary.altIssues} missing alt</span>
-                <span className="tally warn">{report.pageSummary.ogMissing} missing OG</span>
+              <div className="crawlall">
+                <button className="btn" onClick={crawlAll} disabled={crawl && crawl.running}>
+                  {crawl && crawl.running ? `Crawling… ${crawl.done}/${crawl.total}` : crawledPages ? "↻ Re-crawl all pages" : "Crawl all pages"}
+                </button>
+                {crawl && crawl.running && crawl.total > 0 && (
+                  <div className="progress"><div className="bar" style={{ width: `${Math.round((crawl.done / crawl.total) * 100)}%` }} /></div>
+                )}
+                {crawl && !crawl.running && crawledPages && <span className="muted small">Audited all {crawl.total} sitemap pages.</span>}
+                {crawl && crawl.error && <span className="err">⚠ {crawl.error}</span>}
               </div>
-              {report.pages.map((pg, i) => (
+              <div className="tallies" style={{ marginBottom: 12 }}>
+                <span className="tally fail">{pageSummary.titleMissing} missing title</span>
+                <span className="tally fail">{pageSummary.descMissing} missing description</span>
+                <span className="tally warn">{pageSummary.titleLong + pageSummary.titleShort} title length</span>
+                <span className="tally warn">{pageSummary.descLong + pageSummary.descShort} description length</span>
+                <span className="tally warn">{pageSummary.altIssues} missing alt</span>
+                <span className="tally warn">{pageSummary.ogMissing} missing OG</span>
+              </div>
+              {pageList.map((pg, i) => (
                 <div className="pagecard" key={i}>
                   <div className="pagepath">{pg.path}</div>
                   <div className="pageflags">

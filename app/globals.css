@@ -95,6 +95,9 @@ select.inp{appearance:auto}
 .daterow .inp{width:auto}
 input[type="date"].inp{padding:9px 12px}
 .small{font-size:12px;line-height:1.45}
+.crawlall{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.progress{flex:1;min-width:140px;height:8px;background:var(--line);border-radius:999px;overflow:hidden}
+.progress .bar{height:100%;background:var(--lime);transition:width .3s ease}
 
 /* metric cards (GSC summary + report) */
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
