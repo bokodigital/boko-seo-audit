@@ -40,6 +40,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lastOrigin, setLastOrigin] = useState("");
+  const [dr, setDr] = useState(null);
 
   // analytics
   const [gaState, setGaState] = useState({ loaded: false, configured: false, properties: [], error: "" });
@@ -63,13 +64,19 @@ export default function Page() {
 
   const run = async () => {
     if (!url.trim()) return;
-    setLoading(true); setError(""); setReport(null);
+    setLoading(true); setError(""); setReport(null); setDr(null);
     try {
       const r = await api("/api/audit", { method: "POST", body: JSON.stringify({ url }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Audit failed");
       setReport(d);
-      try { const o = new URL(d.finalUrl).origin; setLastOrigin(o); if (!site) setSite(o + "/"); } catch (e) {}
+      let origin = url;
+      try { origin = new URL(d.finalUrl).origin; setLastOrigin(origin); if (!site) setSite(origin + "/"); } catch (e) {}
+      // Fetch Ahrefs Domain Rating (free metric); never blocks the audit.
+      api(`/api/ahrefs?target=${encodeURIComponent(origin)}`)
+        .then((res) => res.json())
+        .then((x) => { if (x && x.configured !== false && typeof x.domainRating === "number") setDr(x.domainRating); })
+        .catch(() => {});
     } catch (e) { setError(e.message || String(e)); } finally { setLoading(false); }
   };
 
@@ -179,6 +186,7 @@ export default function Page() {
                   <span className="tally fail">{report.counts.fail} failed</span>
                   <span className="tally warn">{report.counts.warn} warnings</span>
                   <span className="tally pass">{report.counts.pass} passed</span>
+                  {dr !== null && <span className="tally pass">Ahrefs DR {dr}</span>}
                 </div>
               </div>
             </div>
