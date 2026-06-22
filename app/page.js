@@ -47,6 +47,7 @@ export default function Page() {
   const [ga, setGa] = useState(null);
   const [gaLoading, setGaLoading] = useState(false);
   const [gaError, setGaError] = useState("");
+  const [gscState, setGscState] = useState({ loaded: false, configured: false, sites: [], error: "" });
   const [site, setSite] = useState("");
   const [gsc, setGsc] = useState(null);
   const [gscLoading, setGscLoading] = useState(false);
@@ -80,7 +81,28 @@ export default function Page() {
     if (d.properties && d.properties[0]) setPropertyId(d.properties[0].id);
   }, [api]);
 
-  useEffect(() => { if (view === "analytics" && !gaState.loaded) loadProperties(); /* eslint-disable-next-line */ }, [view]);
+  const loadSites = useCallback(async () => {
+    const r = await api("/api/gsc");
+    const d = await r.json();
+    if (!r.ok) { setGscState({ loaded: true, configured: true, sites: [], error: d.error || "Failed" }); return; }
+    setGscState({ loaded: true, configured: d.configured, sites: d.sites || [], error: d.error || "" });
+    if (d.sites && d.sites.length) {
+      setSite((prev) => {
+        if (prev) return prev;
+        let host = "";
+        try { host = new URL(lastOrigin).host; } catch (e) {}
+        const match = host && d.sites.find((s) => s.siteUrl.includes(host));
+        return (match || d.sites[0]).siteUrl;
+      });
+    }
+  }, [api, lastOrigin]);
+
+  useEffect(() => {
+    if (view !== "analytics") return;
+    if (!gaState.loaded) loadProperties();
+    if (!gscState.loaded) loadSites();
+    /* eslint-disable-next-line */
+  }, [view]);
 
   const loadGa = async () => {
     if (!propertyId) return;
@@ -246,11 +268,26 @@ export default function Page() {
 
           {/* GSC */}
           <div className="section-h">Search Console — top keywords this month (max 30)</div>
+          {gscState.loaded && !gscState.configured && (
+            <div className="err">Google isn't configured yet. Add the GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY env vars (see README) and add the service account as a user on your Search Console property.</div>
+          )}
+          {gscState.loaded && gscState.configured && gscState.error && <div className="err">⚠ {gscState.error}</div>}
           <div className="searchrow">
-            <input className="inp" value={site} placeholder="https://example.com/ or sc-domain:example.com" onChange={(e) => setSite(e.target.value)} />
-            <button className="btn primary" onClick={loadGsc} disabled={gscLoading}>{gscLoading ? "Loading..." : "Load keywords"}</button>
+            {gscState.sites.length > 0 ? (
+              <select className="inp" value={site} onChange={(e) => setSite(e.target.value)}>
+                {!site && <option value="">Select a verified site…</option>}
+                {gscState.sites.map((s) => <option key={s.siteUrl} value={s.siteUrl}>{s.siteUrl}</option>)}
+              </select>
+            ) : (
+              <input className="inp" value={site} placeholder="https://example.com/ or sc-domain:example.com" onChange={(e) => setSite(e.target.value)} />
+            )}
+            <button className="btn primary" onClick={loadGsc} disabled={gscLoading || !site}>{gscLoading ? "Loading..." : "Load keywords"}</button>
           </div>
-          <div className="muted small" style={{ marginTop: 4 }}>Use the exact property as verified in Search Console (URL-prefix with trailing slash, or sc-domain: for domain properties).</div>
+          <div className="muted small" style={{ marginTop: 4 }}>
+            {gscState.sites.length > 0
+              ? `${gscState.sites.length} verified ${gscState.sites.length === 1 ? "site" : "sites"} found on this account — pick one above.`
+              : "No verified sites loaded yet. Enter the exact property as verified in Search Console (URL-prefix with trailing slash, or sc-domain: for domain properties)."}
+          </div>
           {gscError && <div className="err">⚠ {gscError}</div>}
           {gsc && (<>
             <div className="tallies" style={{ margin: "12px 0" }}>
