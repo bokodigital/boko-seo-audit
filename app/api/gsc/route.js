@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { checkApp } from "@/lib/auth";
 import { googleConfigured } from "@/lib/google";
-import { topKeywords } from "@/lib/gsc";
+import { topKeywords, listSites } from "@/lib/gsc";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+
+export async function GET(request) {
+  if (!checkApp(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!googleConfigured()) return NextResponse.json({ configured: false, sites: [] });
+  try {
+    const sites = await listSites();
+    return NextResponse.json({ configured: true, sites });
+  } catch (e) {
+    return NextResponse.json({ configured: true, sites: [], error: e.message || String(e) }, { status: 502 });
+  }
+}
 
 export async function POST(request) {
   if (!checkApp(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
