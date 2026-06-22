@@ -88,3 +88,58 @@ h1.title{font-size:32px;font-weight:900;letter-spacing:-.5px;margin:0 0 8px;colo
 .grid2cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px}
 @media(max-width:680px){.grid2cards{grid-template-columns:1fr}}
 select.inp{appearance:auto}
+
+/* date range row */
+.daterow{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin:14px 0 6px}
+.daterow label,.rpt-controls label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.daterow .inp{width:auto}
+input[type="date"].inp{padding:9px 12px}
+.small{font-size:12px;line-height:1.45}
+
+/* metric cards (GSC summary + report) */
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:680px){.metrics{grid-template-columns:1fr 1fr}}
+.metric{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--white)}
+.m-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.m-value{font-size:26px;font-weight:900;line-height:1.1;margin:4px 0;color:var(--ink)}
+.m-prev{font-size:11px;color:var(--muted)}
+.delta{font-size:12px;font-weight:800}
+.delta.up{color:#15803d}.delta.down{color:#b91c1c}.delta.flat{color:var(--muted)}
+
+/* report */
+.report{margin-top:18px}
+.rpt-controls{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.rpt-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.rpt-row label{flex:1;min-width:180px}
+.rpt-cover{background:var(--ink);color:#fff;border-radius:16px;padding:30px;margin-bottom:18px}
+.rpt-brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px;margin-bottom:14px}
+.rpt-logo{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--lime);color:var(--ink);font-weight:900;font-size:20px;font-family:Georgia,serif}
+.rpt-cover h1{font-size:32px;font-weight:900;margin:0 0 6px}
+.rpt-sub{font-size:18px;font-weight:700;color:var(--lime);word-break:break-all}
+.rpt-dates{font-size:14px;margin:6px 0 2px}
+.rpt-sec{border-top:3px solid var(--lime);padding-top:14px;margin:22px 0}
+.rpt-sec h2{font-size:20px;font-weight:900;margin:0 0 12px}
+.rpt-sec h3{font-size:14px;font-weight:800;margin:16px 0 6px}
+.rpt-note{font-size:13px;color:var(--ink);background:var(--lilac);border-radius:10px;padding:12px;margin:12px 0}
+.rpt-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:680px){.rpt-grid{grid-template-columns:1fr}}
+.rpt-card{border:1px solid var(--line);border-radius:10px;padding:12px}
+.rpt-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.rpt-table th{text-align:left;border-bottom:2px solid var(--line);padding:6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.rpt-table td{border-bottom:1px solid var(--line);padding:6px 8px;word-break:break-word}
+.rpt-table td:nth-child(n+2){text-align:right;white-space:nowrap}
+.rpt-issue{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}
+.rpt-issue .sev{flex:none}
+.rpt-issue .r{font-size:12px;color:var(--muted);margin-top:2px}
+.rpt-checks{display:flex;flex-direction:column;gap:6px}
+.rpt-chk{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.rpt-foot{border-top:3px solid var(--lime);margin-top:24px;padding-top:10px;color:var(--muted);font-size:11px;text-align:center}
+
+@media print {
+  .noprint{display:none !important}
+  body{background:#fff}
+  .wrap{margin:0;padding:0;max-width:none}
+  .panel{border:0;box-shadow:none;border-radius:0;padding:0}
+  .rpt-sec,.rpt-card,.metric,.rpt-issue{page-break-inside:avoid}
+  .rpt-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

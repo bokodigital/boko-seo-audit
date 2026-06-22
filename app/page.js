@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Report from "./Report";
 
 function Logo() {
   return (
@@ -20,6 +21,11 @@ const PILL = { pass: "p-pass", warn: "p-warn", notice: "p-notice", fail: "p-fail
 const PILL_LABEL = { pass: "Pass", warn: "Warn", notice: "Note", fail: "Fail" };
 const num = (n) => Number(n || 0).toLocaleString();
 const pct = (n) => (n * 100).toFixed(1) + "%";
+const signedNum = (n) => (n >= 0 ? "+" : "") + num(n);
+function monthDefaults() {
+  const n = new Date(), p = (x) => String(x).padStart(2, "0");
+  return { start: `${n.getFullYear()}-${p(n.getMonth() + 1)}-01`, end: `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}` };
+}
 
 function KVList({ rows }) {
   if (!rows || !rows.length) return <div className="muted small" style={{ padding: "8px 0" }}>No data for this period.</div>;
@@ -53,6 +59,8 @@ export default function Page() {
   const [gsc, setGsc] = useState(null);
   const [gscLoading, setGscLoading] = useState(false);
   const [gscError, setGscError] = useState("");
+  const [start, setStart] = useState(() => monthDefaults().start);
+  const [end, setEnd] = useState(() => monthDefaults().end);
 
   const api = useCallback((path, opts = {}) => fetch(path, {
     ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}), ...(pw ? { "x-app-password": pw } : {}) },
@@ -115,7 +123,7 @@ export default function Page() {
     if (!propertyId) return;
     setGaLoading(true); setGaError(""); setGa(null);
     try {
-      const r = await api("/api/ga/report", { method: "POST", body: JSON.stringify({ propertyId }) });
+      const r = await api("/api/ga/report", { method: "POST", body: JSON.stringify({ propertyId, start, end }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed");
       setGa(d);
@@ -126,7 +134,7 @@ export default function Page() {
     if (!site.trim()) return;
     setGscLoading(true); setGscError(""); setGsc(null);
     try {
-      const r = await api("/api/gsc", { method: "POST", body: JSON.stringify({ siteUrl: site }) });
+      const r = await api("/api/gsc", { method: "POST", body: JSON.stringify({ siteUrl: site, start, end }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed");
       setGsc(d);
@@ -163,9 +171,10 @@ export default function Page() {
       <div className="panel">
         <span className="badge">SEO Audit & Analytics</span>
         <h1 className="title">Technical SEO Audit & Analytics</h1>
-        <div className="tabs" style={{ marginTop: 14 }}>
+        <div className="tabs noprint" style={{ marginTop: 14 }}>
           <button className={"tab" + (view === "audit" ? " active" : "")} onClick={() => setView("audit")}>On-page audit</button>
           <button className={"tab" + (view === "analytics" ? " active" : "")} onClick={() => setView("analytics")}>Analytics & Search</button>
+          <button className={"tab" + (view === "report" ? " active" : "")} onClick={() => { setView("report"); if (!gaState.loaded) loadProperties(); if (!gscState.loaded) loadSites(); }}>Monthly Report</button>
         </div>
 
         {view === "audit" && (<>
@@ -201,6 +210,13 @@ export default function Page() {
 
             {report.pages && report.pages.length > 0 && (<>
               <div className="section-h">Per-page on-page SEO ({report.pages.length} pages crawled)</div>
+              {report.discovery && (
+                <div className="muted small" style={{ marginBottom: 10 }}>
+                  {report.discovery.source === "sitemap"
+                    ? `Pages discovered from the XML sitemap${report.discovery.viaGsc ? " (via Search Console)" : ""}${report.discovery.total ? ` — ${report.discovery.total} URLs found, auditing up to ${report.pages.length}` : ""}.`
+                    : "No sitemap found — pages discovered by following on-page links."}
+                </div>
+              )}
               <div className="tallies" style={{ marginBottom: 12 }}>
                 <span className="tally fail">{report.pageSummary.titleMissing} missing title</span>
                 <span className="tally fail">{report.pageSummary.descMissing} missing description</span>
@@ -235,8 +251,13 @@ export default function Page() {
         </>)}
 
         {view === "analytics" && (<>
+          <div className="daterow">
+            <label>From <input className="inp" type="date" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+            <label>To <input className="inp" type="date" value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+            <span className="muted small">Both reports compare against the equal-length period just before this range.</span>
+          </div>
           {/* GA4 */}
-          <div className="section-h" style={{ marginTop: 18 }}>Google Analytics 4 — this month vs last</div>
+          <div className="section-h" style={{ marginTop: 8 }}>Google Analytics 4 — selected range vs previous period</div>
           {!gaState.loaded && <div className="muted small">Loading properties…</div>}
           {gaState.loaded && !gaState.configured && (
             <div className="err">Google isn't configured yet. Add the GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY env vars (see README) and grant the service account access to your GA4 property.</div>
@@ -255,13 +276,13 @@ export default function Page() {
             <div className="scorecard" style={{ marginTop: 14 }}>
               <div><div className="ring" style={{ background: "var(--lime)" }}><div className="inner"><span className="num">{num(ga.users.current)}</span><span className="lbl">Users</span></div></div></div>
               <div className="score-meta">
-                <h2>{num(ga.users.current)} users this month</h2>
-                <div className="url">Last month: {num(ga.users.previous)} · change {usersDelta >= 0 ? "+" : ""}{num(usersDelta)} ({usersPctTxt})</div>
+                <h2>{num(ga.users.current)} users this period</h2>
+                <div className="url">Previous period: {num(ga.users.previous)} · change {usersDelta >= 0 ? "+" : ""}{num(usersDelta)} ({usersPctTxt})</div>
                 <div className="muted small" style={{ marginTop: 6 }}>{ga.range.curStart} → {ga.range.curEnd}</div>
               </div>
             </div>
             <div className="grid2cards">
-              <div className="cat"><h3>Most viewed pages (vs last month)</h3>
+              <div className="cat"><h3>Most viewed pages (vs previous period)</h3>
                 <KVList rows={ga.topPages.map((p) => ({ k: p.page, v: `${num(p.views)} (${p.views - p.prevViews >= 0 ? "+" : ""}${num(p.views - p.prevViews)})` }))} /></div>
               <div className="cat"><h3>Users by traffic source</h3>
                 <KVList rows={ga.sources.map((s) => ({ k: s.source || "(unknown)", v: num(s.users) }))} /></div>
@@ -275,7 +296,7 @@ export default function Page() {
           </>)}
 
           {/* GSC */}
-          <div className="section-h">Search Console — top keywords this month (max 30)</div>
+          <div className="section-h">Search Console — selected range vs previous period</div>
           {gscState.loaded && !gscState.configured && (
             <div className="err">Google isn't configured yet. Add the GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY env vars (see README) and add the service account as a user on your Search Console property.</div>
           )}
@@ -289,7 +310,7 @@ export default function Page() {
             ) : (
               <input className="inp" value={site} placeholder="https://example.com/ or sc-domain:example.com" onChange={(e) => setSite(e.target.value)} />
             )}
-            <button className="btn primary" onClick={loadGsc} disabled={gscLoading || !site}>{gscLoading ? "Loading..." : "Load keywords"}</button>
+            <button className="btn primary" onClick={loadGsc} disabled={gscLoading || !site}>{gscLoading ? "Loading..." : "Load report"}</button>
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>
             {gscState.sites.length > 0
@@ -297,12 +318,14 @@ export default function Page() {
               : "No verified sites loaded yet. Enter the exact property as verified in Search Console (URL-prefix with trailing slash, or sc-domain: for domain properties)."}
           </div>
           {gscError && <div className="err">⚠ {gscError}</div>}
-          {gsc && (<>
-            <div className="tallies" style={{ margin: "12px 0" }}>
-              <span className="tally pass">{num(gsc.totals.clicks)} clicks</span>
-              <span className="tally warn">{num(gsc.totals.impressions)} impressions</span>
+          {gsc && gsc.summary && (<>
+            <div className="metrics" style={{ marginTop: 12 }}>
+              <div className="metric"><div className="m-label">Total clicks</div><div className="m-value">{num(gsc.summary.clicks)}</div><div className="m-prev">prev {num(gsc.prevSummary.clicks)} · {signedNum(gsc.summary.clicks - gsc.prevSummary.clicks)}</div></div>
+              <div className="metric"><div className="m-label">Total impressions</div><div className="m-value">{num(gsc.summary.impressions)}</div><div className="m-prev">prev {num(gsc.prevSummary.impressions)} · {signedNum(gsc.summary.impressions - gsc.prevSummary.impressions)}</div></div>
+              <div className="metric"><div className="m-label">Average CTR</div><div className="m-value">{pct(gsc.summary.ctr)}</div><div className="m-prev">prev {pct(gsc.prevSummary.ctr)}</div></div>
+              <div className="metric"><div className="m-label">Average position</div><div className="m-value">{Number(gsc.summary.position).toFixed(1)}</div><div className="m-prev">prev {Number(gsc.prevSummary.position).toFixed(1)}</div></div>
             </div>
-            <div className="cat"><h3>Top keywords</h3>
+            <div className="cat" style={{ marginTop: 12 }}><h3>Top keywords (max 30)</h3>
               <div className="kv" style={{ fontWeight: 800, color: "var(--ink)" }}><span className="k">Query</span><span className="v">Clicks · Impr · CTR · Pos</span></div>
               {gsc.rows.map((r, i) => (
                 <div className="kv" key={i}><span className="k">{r.query}</span><span className="v">{num(r.clicks)} · {num(r.impressions)} · {pct(r.ctr)} · {r.position.toFixed(1)}</span></div>
@@ -312,7 +335,11 @@ export default function Page() {
           </>)}
         </>)}
 
-        <div className="foot">Boko Digital · Strategize. Execute. Deliver.</div>
+        {view === "report" && (
+          <Report api={api} properties={gaState.properties} sites={gscState.sites} defaultUrl={lastOrigin || url} start={start} end={end} />
+        )}
+
+        <div className="foot noprint">Boko Digital · Strategize. Execute. Deliver.</div>
       </div>
     </div>
   </>);
