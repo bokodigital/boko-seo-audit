@@ -72,6 +72,7 @@ export default function Page() {
   const [gsc, setGsc] = useState(null);
   const [gscLoading, setGscLoading] = useState(false);
   const [gscError, setGscError] = useState("");
+  const [hideZero, setHideZero] = useState(true);
   const [start, setStart] = useState(() => monthDefaults().start);
   const [end, setEnd] = useState(() => monthDefaults().end);
 
@@ -387,11 +388,19 @@ export default function Page() {
               <div className="metric"><div className="m-label">Average CTR</div><div className="m-value">{pct(gsc.summary.ctr)}</div><div className="m-prev">prev {pct(gsc.prevSummary.ctr)}</div></div>
               <div className="metric"><div className="m-label">Average position</div><div className="m-value">{Number(gsc.summary.position).toFixed(1)}</div><div className="m-prev">prev {Number(gsc.prevSummary.position).toFixed(1)}</div></div>
             </div>
-            <div className="cat" style={{ marginTop: 12 }}><h3>Top keywords (max 30)</h3>
-              <div className="kv" style={{ fontWeight: 800, color: "var(--ink)" }}><span className="k">Query</span><span className="v">Clicks · Impr · CTR · Pos</span></div>
-              {gsc.rows.map((r, i) => (
+            <div className="cat" style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <h3 style={{ margin: 0 }}>Top keywords (max 30)</h3>
+                <label className="muted small" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} /> Hide zero-click queries
+                </label>
+              </div>
+              <div className="kv" style={{ fontWeight: 800, color: "var(--ink)", marginTop: 8 }}><span className="k">Query</span><span className="v">Clicks · Impr · CTR · Pos</span></div>
+              {(hideZero ? gsc.rows.filter((r) => r.clicks > 0) : gsc.rows).map((r, i) => (
                 <div className="kv" key={i}><span className="k">{r.query}</span><span className="v">{num(r.clicks)} · {num(r.impressions)} · {pct(r.ctr)} · {r.position.toFixed(1)}</span></div>
               ))}
+              {hideZero && gsc.rows.filter((r) => r.clicks > 0).length === 0 && <div className="muted small" style={{ padding: "8px 0" }}>No queries received clicks in this period. Untick &ldquo;Hide zero-click queries&rdquo; to see impression-only queries.</div>}
+              {hideZero && gsc.rows.filter((r) => r.clicks > 0).length > 0 && gsc.rows.some((r) => !r.clicks) && <div className="muted small" style={{ paddingTop: 6 }}>{gsc.rows.filter((r) => !r.clicks).length} zero-click impression queries hidden (real but low-value long-tail).</div>}
               {!gsc.rows.length && <div className="muted small" style={{ padding: "8px 0" }}>No keyword data for this period.</div>}
             </div>
           </>)}

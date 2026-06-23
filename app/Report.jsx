@@ -124,19 +124,25 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
                 at an average CTR of <b>{pct(g.summary.ctr)}</b> and average position <b>{Number(g.summary.position).toFixed(1)}</b>,
                 compared with {num(g.prevSummary.clicks)} clicks and {num(g.prevSummary.impressions)} impressions in the prior period.
               </p>
-              {g.rows && g.rows.length > 0 && (
-                <>
-                  <h3>Top queries</h3>
-                  <table className="rpt-table">
-                    <thead><tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos.</th></tr></thead>
-                    <tbody>
-                      {g.rows.map((r, i) => (
-                        <tr key={i}><td>{r.query}</td><td>{num(r.clicks)}</td><td>{num(r.impressions)}</td><td>{pct(r.ctr)}</td><td>{Number(r.position).toFixed(1)}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
+              {g.rows && g.rows.length > 0 && (() => {
+                const clicked = g.rows.filter((r) => r.clicks > 0);
+                const show = clicked.length ? clicked : g.rows;
+                const hidden = g.rows.length - show.length;
+                return (
+                  <>
+                    <h3>Top queries{clicked.length ? " (queries with clicks)" : ""}</h3>
+                    <table className="rpt-table">
+                      <thead><tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos.</th></tr></thead>
+                      <tbody>
+                        {show.map((r, i) => (
+                          <tr key={i}><td>{r.query}</td><td>{num(r.clicks)}</td><td>{num(r.impressions)}</td><td>{pct(r.ctr)}</td><td>{Number(r.position).toFixed(1)}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {hidden > 0 && <div className="muted small">{hidden} zero-click impression queries omitted.</div>}
+                  </>
+                );
+              })()}
             </section>
           )}
 
