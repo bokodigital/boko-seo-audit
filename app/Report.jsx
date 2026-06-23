@@ -99,6 +99,46 @@ function buildRoadmap(data) {
       "Topic clusters compound: they lift the whole group of related queries, not a single page.", "High", "High");
   }
 
+  // ---- AI / LLM VISIBILITY GROWTH (always on — earning citations, not just on-page schema) ----
+  add(PHASES[2], "Earn citations on sources LLMs trust",
+    "AI answers are synthesised mostly from third-party sources, so off-site presence is the biggest driver of AI visibility: get listed and reviewed on Clutch, G2, DesignRush and Google Business Profile; pursue mentions in “best digital agency” roundups and listicles; and answer relevant questions on Reddit, Quora and LinkedIn. The more authoritative places name Boko, the more ChatGPT/Gemini/Perplexity surface it.",
+    "LLMs cite and paraphrase reputable third-party pages far more than a brand's own site.", "High", "Medium");
+  add(PHASES[1], "Write answer-first, quotable content",
+    "Lead each key page/section with a direct 2–3 sentence answer, then expand. Phrase H2s as the exact questions people ask, and add definitions, short lists and stats. This is the precise format ChatGPT, Gemini and Google AI lift into their answers.",
+    "Concise, structured answers are what AI assistants quote verbatim.", "Medium", "Medium");
+  add(PHASES[2], "Lock brand-entity consistency",
+    "Use an identical business name, address and phone everywhere, and add sameAs links (LinkedIn, Instagram, Facebook, Clutch) to your Organization JSON-LD so AI engines confidently recognise Boko as one entity and attribute mentions to it.",
+    "Entity clarity is how AI engines connect scattered mentions to your brand.", "Medium", "Low");
+  add(PHASES[1], "Track AI referrals every month",
+    "Use the “Visits from AI assistants” section above as your AI-visibility KPI — growing ChatGPT / Gemini / Perplexity / Copilot referrals month over month confirms these efforts are working.",
+    "What gets measured gets grown.", "Low", "Low");
+
+  // ---- ORGANIC TRAFFIC GROWTH (Google Analytics + Search Console) ----
+  add(PHASES[2], "Build authority with backlinks / digital PR",
+    "Publish one link-worthy asset (a data study, benchmark or strong opinion piece) and pitch it to marketing publications and journalists; guest-post on relevant blogs; and claim reputable directory listings. Backlinks are the strongest off-page ranking factor — they lift Search Console impressions and average position, which feeds GA4 organic users.",
+    "More referring domains = higher rankings across the whole site.", "High", "High");
+  add(PHASES[1], "Internal-link your money pages",
+    "Add contextual links from your highest-traffic pages and blog posts to your core service pages using descriptive keyword anchor text. It passes authority to the pages you want ranking and is one of the fastest on-site levers.",
+    "Internal links concentrate ranking power where it converts.", "Medium", "Low");
+  add(PHASES[1], "Improve page speed / Core Web Vitals",
+    "Compress and lazy-load images, defer non-critical scripts and trim heavy markup. Faster pages rank better in Google and cut bounce, growing engaged sessions in GA4.",
+    "Speed is both a ranking factor and a direct lever on engagement.", "Medium", "Medium");
+  if (g && g.rows && g.rows.some((r) => /near me|near/i.test(r.query))) {
+    const q = (g.rows.find((r) => /near me/i.test(r.query)) || g.rows.find((r) => /near/i.test(r.query)) || {}).query;
+    add(PHASES[1], "Win the local pack & Google Business Profile",
+      `You already show for local searches (e.g. “${q || "digital media company near me"}”). Fully optimise your Google Business Profile — correct categories & services, photos, weekly posts and a steady stream of reviews — to capture map-pack and “near me” traffic that sits above organic results.`,
+      "Local pack results rank above organic and convert highly.", "Medium", "Low");
+  }
+  add(PHASES[2], "Refresh & expand your top pages quarterly",
+    "Update your best-performing pages every quarter — fresh stats, expanded sections, current-year references — to defend rankings against content decay and pick up more long-tail queries.",
+    "Refreshing existing winners is higher-ROI than always starting new pages.", "Medium", "Low");
+  add(PHASES[1], "Set up Key Events in GA4",
+    "Mark form submissions, quote requests and calls as Key Events so traffic growth maps to leads — then optimise toward the pages and channels that actually convert, growing qualified traffic rather than vanity sessions.",
+    "Tying growth to conversions keeps it linked to revenue.", "Medium", "Low");
+  add(PHASES[2], "Capture featured snippets (position 0)",
+    "For question-style queries you rank for, add a concise 40–55 word answer directly under an H2 that matches the question. This wins the snippet box above the #1 result and lifts click-through.",
+    "Position 0 grabs clicks even when you're not ranked #1.", "Medium", "Low");
+
   if (!steps.length) add(PHASES[1], "Run a full audit + connect Search Console", "Enter the site URL to crawl all pages, and connect Google so the roadmap can target your real pages and queries.", "The roadmap is generated from live audit + Search Console data.", "—", "—");
   return steps;
 }
