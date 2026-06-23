@@ -351,6 +351,10 @@ export default function Page() {
                 <KVList rows={ga.countries.map((c) => ({ k: c.country, v: num(c.views) }))} /></div>
               <div className="cat"><h3>Conversion events ({ga.events.metric})</h3>
                 <KVList rows={ga.events.rows.map((e) => ({ k: e.event, v: num(e.count) }))} /></div>
+              <div className="cat"><h3>Visits from AI assistants</h3>
+                <KVList rows={(ga.ai && ga.ai.rows && ga.ai.rows.length) ? ga.ai.rows.map((a) => ({ k: a.source, v: num(a.users) })) : []} /></div>
+              <div className="cat"><h3>Top entry pages (where visits start)</h3>
+                <KVList rows={(ga.landingPages || []).map((p) => ({ k: p.page, v: num(p.sessions) }))} /></div>
             </div>
           </>)}
 
