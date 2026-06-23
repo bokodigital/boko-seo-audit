@@ -31,36 +31,75 @@ function Metric({ label, value, cur, prev, lowerBetter, suffix }) {
 
 const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
 
-// Synthesise a prioritised SEO roadmap from everything the audit found.
+const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
+
+// Synthesise a DEEP, data-specific SEO roadmap — naming the actual pages,
+// queries and checks found in this audit rather than generic advice.
 function buildRoadmap(data) {
   const steps = [];
   const au = data.audit, llm = data.llm, g = data.gsc;
-  if (au && au.improvements) {
-    au.improvements.forEach((im) => steps.push({
-      phase: im.severity === "high" ? PHASES[0] : PHASES[1],
-      title: im.label,
-      action: im.recommendation || "Resolve this issue.",
-      why: im.detail || "",
-      impact: im.severity === "high" ? "High" : "Medium", effort: "Low",
+  const add = (phase, title, action, why, impact, effort) => steps.push({ phase, title, action, why, impact, effort });
+
+  // ---- Search Console: query-level opportunities (the highest-ROI, most specific) ----
+  if (g && g.rows && g.rows.length) {
+    const rows = g.rows;
+    // Striking distance: ranking positions 4–20 = page 1–2 boundary, biggest upside
+    g.rows.filter((r) => r.position >= 4 && r.position <= 20 && r.impressions >= 5)
+      .sort((a, b) => b.impressions - a.impressions).slice(0, 5)
+      .forEach((r) => add(PHASES[1],
+        `Move “${r.query}” onto page 1`,
+        `Currently position ${r.position.toFixed(1)} with ${num(r.impressions)} impressions/mo. Put this exact phrase in the target page's H1, <title> and first 100 words, add an on-page FAQ answering it, and add 2–3 internal links to that page using “${r.query}” as anchor text.`,
+        `Page-2 rankings earn almost no clicks; reaching positions 1–3 typically lifts CTR from ~0–1% to 5–15%.`, "High", "Medium"));
+    // High impressions, zero clicks = snippet/title problem (fast win)
+    rows.filter((r) => r.impressions >= 40 && r.clicks === 0)
+      .sort((a, b) => b.impressions - a.impressions).slice(0, 3)
+      .forEach((r) => add(PHASES[0],
+        `Win clicks for “${r.query}”`,
+        `You appear ${num(r.impressions)} times (avg pos ${r.position.toFixed(1)}) but get 0 clicks. Rewrite that page's <title> to lead with the searcher's goal + the phrase, and write a benefit-led 150–160 char meta description with a clear hook/CTA.`,
+        `High visibility with no clicks is purely a title/snippet issue — the fastest traffic gain available.`, "High", "Low"));
+  }
+
+  // ---- Per-page fixes, naming the actual pages ----
+  if (au && au.pages && au.pages.length) {
+    const noTitle = au.pages.filter((p) => p.titleFlag === "missing").map((p) => p.path);
+    const noDesc = au.pages.filter((p) => p.descFlag === "missing").map((p) => p.path);
+    const lenIssues = au.pages.filter((p) => ["long", "short"].includes(p.titleFlag) || ["long", "short"].includes(p.descFlag)).map((p) => p.path);
+    const altIssues = au.pages.filter((p) => p.imgsNoAlt > 0);
+    const ogIssues = au.pages.filter((p) => !p.ogOk).map((p) => p.path);
+    if (noTitle.length) add(PHASES[0], `Add <title> tags to ${noTitle.length} page(s)`, `Missing on: ${plist(noTitle)}. Write a unique 50–60 char title for each, leading with its primary keyword.`, "Pages without a title can't rank for their topic.", "High", "Low");
+    if (noDesc.length) add(PHASES[0], `Add meta descriptions to ${noDesc.length} page(s)`, `Missing on: ${plist(noDesc)}. Add a unique 150–160 char description per page, summarising it with the keyword and a reason to click.`, "Descriptions drive click-through from the SERP.", "Medium", "Low");
+    if (lenIssues.length) add(PHASES[1], `Fix title/description lengths on ${lenIssues.length} page(s)`, `e.g. ${plist(lenIssues, 5)}. Bring titles to 50–60 and descriptions to 150–160 chars so Google doesn't truncate or rewrite them.`, "Out-of-range tags get cut off or replaced, hurting CTR.", "Medium", "Low");
+    if (altIssues.length) add(PHASES[1], `Add image alt text on ${altIssues.length} page(s)`, `e.g. ${plist(altIssues.map((p) => `${p.path} (${p.imgsNoAlt} img)`), 5)}. Describe each image with its keyword where natural.`, "Helps accessibility and Google Images traffic.", "Low", "Low");
+    if (ogIssues.length) add(PHASES[1], `Complete Open Graph tags on ${ogIssues.length} page(s)`, `e.g. ${plist(ogIssues, 5)}. Add og:title / og:description / og:image / og:url so shares and AI link previews render correctly.`, "Controls how links look when shared and cited.", "Low", "Low");
+  }
+
+  // ---- Site-wide technical checks (specific failing items, not the meta ones above) ----
+  if (au && au.categories) {
+    au.categories.forEach((cat) => (cat.checks || []).forEach((c) => {
+      if ((c.status === "fail" || c.status === "warn") && c.recommendation && !["title", "description", "img-alt", "opengraph"].includes(c.id)) {
+        add(c.status === "fail" ? PHASES[0] : PHASES[1], c.label, c.recommendation, c.detail || "", c.status === "fail" ? "High" : "Medium", "Low");
+      }
     }));
   }
-  if (au && au.pageSummary) {
-    const ps = au.pageSummary;
-    const missing = (ps.titleMissing || 0) + (ps.descMissing || 0);
-    if (missing > 0) steps.push({ phase: PHASES[0], title: "Fill missing titles & meta descriptions", action: `Write unique titles (50–60 chars) and meta descriptions (150–160 chars) for the ${missing} affected page(s) — the Boko SEO Meta tool can bulk-generate and import them.`, why: `${ps.titleMissing || 0} missing title, ${ps.descMissing || 0} missing description.`, impact: "Medium", effort: "Low" });
-    const lenIssues = (ps.titleLong || 0) + (ps.titleShort || 0) + (ps.descLong || 0) + (ps.descShort || 0);
-    if (lenIssues > 0) steps.push({ phase: PHASES[1], title: "Fix title & description lengths", action: "Rewrite over/under-length tags to Google's recommended ranges so they aren't truncated or rewritten.", why: `${lenIssues} pages outside ideal length.`, impact: "Medium", effort: "Low" });
-    if ((ps.altIssues || 0) > 0) steps.push({ phase: PHASES[1], title: "Add image alt text", action: "Add descriptive alt text to images missing it — helps accessibility and image search.", why: `${ps.altIssues} pages with missing alt.`, impact: "Low", effort: "Low" });
-    if ((ps.ogMissing || 0) > 0) steps.push({ phase: PHASES[1], title: "Complete Open Graph tags", action: "Add og:title / description / image / url so shared links and AI previews render correctly.", why: `${ps.ogMissing} pages with incomplete OG.`, impact: "Low", effort: "Low" });
+
+  // ---- AI / LLM: concrete implementation steps tied to the failing checks ----
+  if (llm && llm.checks) {
+    const byId = Object.fromEntries(llm.checks.map((c) => [c.id, c]));
+    const sampleQ = (g && g.rows && g.rows[0] && g.rows[0].query) || "your top question keyword";
+    if (byId.jsonld && byId.jsonld.status !== "pass") add(PHASES[2], "Implement JSON-LD structured data", `Add sitewide Organization + WebSite (with SearchAction) + BreadcrumbList schema in <head>, plus Service schema on each service page and Article schema on blog posts. This is how ChatGPT, Gemini and Google AI identify what the business does and attribute answers to it.`, "AI engines rely on schema to extract entities and cite sources.", "High", "Medium");
+    if (byId.faq && byId.faq.status !== "pass") add(PHASES[2], "Add FAQ schema mirroring real searches", `Add FAQPage JSON-LD with 4–6 Q&As to your top service pages, using actual Search Console questions as the questions (e.g. “${sampleQ}”). FAQ answers are frequently lifted verbatim into AI answers and Google rich results.`, "Directly answerable, structured content is what AI assistants quote.", "Medium", "Medium");
+    if (byId.llmstxt && byId.llmstxt.status !== "pass") add(PHASES[2], "Publish an llms.txt file", `Create /llms.txt at the domain root — a short markdown list of your key pages (services, about, contact, top articles) each with a one-line summary, so LLM crawlers can map your offering. Keep it current as pages change.`, "Emerging standard for guiding AI crawlers to your best content.", "Medium", "Low");
   }
-  if (g && g.summary) {
-    if (g.summary.impressions > 0 && g.summary.ctr < 0.02) steps.push({ phase: PHASES[1], title: "Lift click-through rate", action: "Rewrite meta titles/descriptions for your highest-impression queries to be more compelling and intent-matched.", why: `CTR is ${(g.summary.ctr * 100).toFixed(1)}% across ${num(g.summary.impressions)} impressions — visibility without clicks.`, impact: "High", effort: "Medium" });
-    if (g.summary.position > 10) steps.push({ phase: PHASES[2], title: "Push priority keywords onto page 1", action: "Strengthen top-impression pages with deeper content, internal links and a few quality backlinks to move them from page 2+ to page 1.", why: `Average position is ${Number(g.summary.position).toFixed(1)}.`, impact: "High", effort: "High" });
+
+  // ---- Content strategy tied to the site's actual demand ----
+  if (g && g.rows && g.rows.length) {
+    const themes = [...new Set(g.rows.slice(0, 15).map((r) => r.query))].slice(0, 5);
+    add(PHASES[2], "Build a topic cluster around your real demand",
+      `Your impressions cluster around: ${themes.join("; ")}. Create one in-depth pillar page on that theme plus 3–4 supporting articles, all internally linked, to consolidate topical authority and capture the long tail — not one-off posts.`,
+      "Topic clusters compound: they lift the whole group of related queries, not a single page.", "High", "High");
   }
-  if (llm && llm.recommendations) {
-    llm.recommendations.slice(0, 4).forEach((r) => steps.push({ phase: PHASES[2], title: r.label + " (AI visibility)", action: r.recommendation, why: "Improves how AI engines (ChatGPT, Gemini, Google AI) parse and cite the site.", impact: r.severity === "high" ? "High" : "Medium", effort: "Medium" }));
-  }
-  steps.push({ phase: PHASES[2], title: "Publish intent-led content", action: "Ship 1–2 articles a month answering the questions your audience searches (use the Search Console queries as topics).", why: "Sustained content is the biggest organic-traffic driver once technical health is solid.", impact: "High", effort: "Medium" });
+
+  if (!steps.length) add(PHASES[1], "Run a full audit + connect Search Console", "Enter the site URL to crawl all pages, and connect Google so the roadmap can target your real pages and queries.", "The roadmap is generated from live audit + Search Console data.", "—", "—");
   return steps;
 }
 
