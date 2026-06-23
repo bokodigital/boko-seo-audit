@@ -132,7 +132,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
                   <>
                     <h3>Top queries{clicked.length ? " (queries with clicks)" : ""}</h3>
                     <table className="rpt-table">
-                      <thead><tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos.</th></tr></thead>
+                      <thead><tr><th>Keyword</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos.</th></tr></thead>
                       <tbody>
                         {show.map((r, i) => (
                           <tr key={i}><td>{r.query}</td><td>{num(r.clicks)}</td><td>{num(r.impressions)}</td><td>{pct(r.ctr)}</td><td>{Number(r.position).toFixed(1)}</td></tr>

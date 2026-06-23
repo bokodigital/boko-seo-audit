@@ -131,6 +131,7 @@ input[type="date"].inp{padding:9px 12px}
 .rpt-card{border:1px solid var(--line);border-radius:10px;padding:12px}
 .rpt-table{width:100%;border-collapse:collapse;font-size:12.5px}
 .rpt-table th{text-align:left;border-bottom:2px solid var(--line);padding:6px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+.rpt-table th:nth-child(n+2){text-align:right}
 .rpt-table td{border-bottom:1px solid var(--line);padding:6px 8px;word-break:break-word}
 .rpt-table td:nth-child(n+2){text-align:right;white-space:nowrap}
 .rpt-issue{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--line)}

@@ -395,10 +395,14 @@ export default function Page() {
                   <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} /> Hide zero-click queries
                 </label>
               </div>
-              <div className="kv" style={{ fontWeight: 800, color: "var(--ink)", marginTop: 8 }}><span className="k">Query</span><span className="v">Clicks · Impr · CTR · Pos</span></div>
-              {(hideZero ? gsc.rows.filter((r) => r.clicks > 0) : gsc.rows).map((r, i) => (
-                <div className="kv" key={i}><span className="k">{r.query}</span><span className="v">{num(r.clicks)} · {num(r.impressions)} · {pct(r.ctr)} · {r.position.toFixed(1)}</span></div>
-              ))}
+              <table className="rpt-table" style={{ marginTop: 10 }}>
+                <thead><tr><th>Keyword</th><th>Clicks</th><th>Impr</th><th>CTR</th><th>Pos</th></tr></thead>
+                <tbody>
+                  {(hideZero ? gsc.rows.filter((r) => r.clicks > 0) : gsc.rows).map((r, i) => (
+                    <tr key={i}><td>{r.query}</td><td>{num(r.clicks)}</td><td>{num(r.impressions)}</td><td>{pct(r.ctr)}</td><td>{r.position.toFixed(1)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
               {hideZero && gsc.rows.filter((r) => r.clicks > 0).length === 0 && <div className="muted small" style={{ padding: "8px 0" }}>No queries received clicks in this period. Untick &ldquo;Hide zero-click queries&rdquo; to see impression-only queries.</div>}
               {hideZero && gsc.rows.filter((r) => r.clicks > 0).length > 0 && gsc.rows.some((r) => !r.clicks) && <div className="muted small" style={{ paddingTop: 6 }}>{gsc.rows.filter((r) => !r.clicks).length} zero-click impression queries hidden (real but low-value long-tail).</div>}
               {!gsc.rows.length && <div className="muted small" style={{ padding: "8px 0" }}>No keyword data for this period.</div>}
