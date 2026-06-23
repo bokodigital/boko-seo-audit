@@ -155,6 +155,15 @@ export default function Page() {
     /* eslint-disable-next-line */
   }, [view]);
 
+  // After an audit, snap the Search Console selector to the property matching the audited domain.
+  useEffect(() => {
+    if (!lastOrigin || !gscState.sites.length) return;
+    let host = ""; try { host = new URL(lastOrigin).host; } catch (e) {}
+    const m = host && gscState.sites.find((s) => s.siteUrl.includes(host));
+    if (m && m.siteUrl !== site) setSite(m.siteUrl);
+    /* eslint-disable-next-line */
+  }, [lastOrigin, gscState.sites]);
+
   const loadGa = async () => {
     if (!propertyId) return;
     setGaLoading(true); setGaError(""); setGa(null);
@@ -162,7 +171,7 @@ export default function Page() {
       const r = await api("/api/ga/report", { method: "POST", body: JSON.stringify({ propertyId, start, end }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed");
-      setGa(d);
+      setGa({ ...d, queryProperty: propertyId });
     } catch (e) { setGaError(e.message || String(e)); } finally { setGaLoading(false); }
   };
 
@@ -173,7 +182,7 @@ export default function Page() {
       const r = await api("/api/gsc", { method: "POST", body: JSON.stringify({ siteUrl: site, start, end }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed");
-      setGsc(d);
+      setGsc({ ...d, querySite: site });
     } catch (e) { setGscError(e.message || String(e)); } finally { setGscLoading(false); }
   };
 
@@ -327,7 +336,7 @@ export default function Page() {
               <div className="score-meta">
                 <h2>{num(ga.users.current)} users this period</h2>
                 <div className="url">Previous period: {num(ga.users.previous)} · change {usersDelta >= 0 ? "+" : ""}{num(usersDelta)} ({usersPctTxt})</div>
-                <div className="muted small" style={{ marginTop: 6 }}>{ga.range.curStart} → {ga.range.curEnd}</div>
+                <div className="muted small" style={{ marginTop: 6 }}>GA4 property {ga.queryProperty} · {ga.range.curStart} → {ga.range.curEnd}</div>
               </div>
             </div>
             <div className="grid2cards">
@@ -368,6 +377,10 @@ export default function Page() {
           </div>
           {gscError && <div className="err">⚠ {gscError}</div>}
           {gsc && gsc.summary && (<>
+            <div className="queryinfo">
+              Showing property <b>{gsc.querySite || site}</b>{gsc.range ? ` · ${gsc.range.start} → ${gsc.range.end}` : ""}
+              <div className="muted small">This is Google's full query list for this exact property and date range, including the zero-click / single-impression long tail. If a query looks unexpected, confirm this property matches the one you're viewing in Search Console.</div>
+            </div>
             <div className="metrics" style={{ marginTop: 12 }}>
               <div className="metric"><div className="m-label">Total clicks</div><div className="m-value">{num(gsc.summary.clicks)}</div><div className="m-prev">prev {num(gsc.prevSummary.clicks)} · {signedNum(gsc.summary.clicks - gsc.prevSummary.clicks)}</div></div>
               <div className="metric"><div className="m-label">Total impressions</div><div className="m-value">{num(gsc.summary.impressions)}</div><div className="m-prev">prev {num(gsc.prevSummary.impressions)} · {signedNum(gsc.summary.impressions - gsc.prevSummary.impressions)}</div></div>

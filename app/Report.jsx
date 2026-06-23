@@ -112,6 +112,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
           {g && (
             <section className="rpt-sec">
               <h2>Search performance (Google Search Console)</h2>
+              <div className="muted small" style={{ marginBottom: 10 }}>Property: <b>{data.site}</b> · {data.range.start} → {data.range.end}</div>
               <div className="metrics">
                 <Metric label="Total clicks" value={num(g.summary.clicks)} cur={g.summary.clicks} prev={g.prevSummary.clicks} />
                 <Metric label="Total impressions" value={num(g.summary.impressions)} cur={g.summary.impressions} prev={g.prevSummary.impressions} />

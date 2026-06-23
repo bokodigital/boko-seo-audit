@@ -95,6 +95,8 @@ select.inp{appearance:auto}
 .daterow .inp{width:auto}
 input[type="date"].inp{padding:9px 12px}
 .small{font-size:12px;line-height:1.45}
+.queryinfo{font-size:13px;background:var(--lilac);border:1px solid var(--line);border-radius:8px;padding:9px 12px;margin:12px 0}
+.queryinfo b{color:var(--ink);word-break:break-all}
 .crawlall{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .progress{flex:1;min-width:140px;height:8px;background:var(--line);border-radius:999px;overflow:hidden}
 .progress .bar{height:100%;background:var(--lime);transition:width .3s ease}
