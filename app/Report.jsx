@@ -30,7 +30,7 @@ function Metric({ label, value, cur, prev, lowerBetter, suffix }) {
 }
 
 // Horizontal bar chart (pure CSS, prints cleanly, no external lib).
-function Bars({ rows, max }) {
+export function Bars({ rows, max }) {
   if (!rows || !rows.length) return <div className="muted small">No data for this period.</div>;
   const top = Math.max(...rows.map((r) => r.value), 1);
   return (
@@ -391,6 +391,20 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
                     { label: "Key events (conversions)", value: ga.journey.keyEvents },
                   ]} />
                   <div className="muted small">Visitors arrive → engage → convert. Percentages show how many continue to each stage.</div>
+                  <div className="rpt-grid" style={{ marginTop: 14 }}>
+                    <div className="rpt-card"><h3>Funnel by stage</h3>
+                      <Bars rows={[
+                        { label: "Sessions", value: ga.journey.sessions || ga.journey.users || 0 },
+                        { label: "Engaged sessions", value: ga.journey.engaged || 0 },
+                        { label: "Key events (conversions)", value: ga.journey.keyEvents || 0 },
+                      ]} />
+                    </div>
+                    <div className="rpt-card"><h3>Stage breakdown</h3>
+                      <table className="rpt-table"><thead><tr><th>Stage</th><th>Count</th><th>% of sessions</th></tr></thead><tbody>
+                        {(() => { const s = ga.journey.sessions || ga.journey.users || 0; return [["Sessions", s], ["Engaged sessions", ga.journey.engaged || 0], ["Key events (conversions)", ga.journey.keyEvents || 0]].map((row, i) => <tr key={i}><td>{row[0]}</td><td>{num(row[1])}</td><td>{s ? Math.round((row[1] / s) * 100) : 0}%</td></tr>); })()}
+                      </tbody></table>
+                    </div>
+                  </div>
                 </>
               )}
               <h3 style={{ marginTop: 16 }}>Flow by page — entries vs views</h3>

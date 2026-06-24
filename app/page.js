@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Report, { FlowFunnel } from "./Report";
+import Report, { FlowFunnel, Bars } from "./Report";
 
 function Logo() {
   return (
@@ -347,6 +347,20 @@ export default function Page() {
                 { label: "Engaged sessions", value: ga.journey.engaged },
                 { label: "Key events", value: ga.journey.keyEvents },
               ]} />
+              <div className="grid2cards" style={{ marginTop: 12 }}>
+                <div className="cat"><h3>Funnel by stage</h3>
+                  <Bars rows={[
+                    { label: "Sessions", value: ga.journey.sessions || ga.journey.users || 0 },
+                    { label: "Engaged sessions", value: ga.journey.engaged || 0 },
+                    { label: "Key events", value: ga.journey.keyEvents || 0 },
+                  ]} />
+                </div>
+                <div className="cat"><h3>Stage breakdown</h3>
+                  {(() => { const s = ga.journey.sessions || ga.journey.users || 0; return [["Sessions", s], ["Engaged sessions", ga.journey.engaged || 0], ["Key events", ga.journey.keyEvents || 0]].map((row, i) => (
+                    <div className="kv" key={i}><span className="k">{row[0]}</span><span className="v">{num(row[1])} · {s ? Math.round((row[1] / s) * 100) : 0}%</span></div>
+                  )); })()}
+                </div>
+              </div>
               <div className="section-h">Audience & engagement</div>
             </>)}
             <div className="grid2cards">
