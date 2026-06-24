@@ -46,6 +46,30 @@ function Bars({ rows, max }) {
   );
 }
 
+// Start→end user-flow funnel: centered, tapering, with drop-off % between stages.
+export function FlowFunnel({ stages }) {
+  const vals = stages.map((s) => Number(s.value) || 0);
+  const max = Math.max(...vals, 1);
+  return (
+    <div className="flow">
+      {stages.map((s, i) => {
+        const v = Number(s.value) || 0;
+        const w = Math.max(12, Math.round((v / max) * 100));
+        const prev = i > 0 ? (Number(stages[i - 1].value) || 0) : null;
+        const rate = prev ? Math.round((v / (prev || 1)) * 100) : null;
+        return (
+          <div className="flowstage" key={s.label}>
+            {i > 0 && <div className="flowdrop">↓ {rate}% continued</div>}
+            <div className="flowbar" style={{ width: w + "%" }}>
+              <span className="flowname">{s.label}</span><span className="flowval">{num(v)}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
 
 const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
@@ -323,19 +347,14 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               <p className="muted small">How visitors move through the site — the conversion funnel, where journeys begin, and the pages they reach. (A literal click-by-click path needs GA4 Path Exploration; this is the API-available equivalent.)</p>
               {ga.journey && (
                 <>
-                  <h3>Conversion funnel</h3>
-                  <div className="funnel">
-                    {[["Active users", ga.journey.users], ["Sessions", ga.journey.sessions], ["Engaged sessions", ga.journey.engaged], ["Key events", ga.journey.keyEvents]].map((s, i, arr) => {
-                      const mx = arr[0][1] || 1;
-                      return (
-                        <div className="frow" key={s[0]}>
-                          <span className="flabel">{s[0]}</span>
-                          <span className="fbarwrap"><span className="fbar" style={{ width: Math.max(8, Math.round((s[1] / mx) * 100)) + "%" }}>{num(s[1])}</span></span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="muted small">Each stage as a share of active users — shows how many visitors engage and convert.</div>
+                  <h3>User flow (start → end)</h3>
+                  <div className="muted small" style={{ marginBottom: 6 }}>{num(ga.journey.users)} active users across the period.</div>
+                  <FlowFunnel stages={[
+                    { label: "Sessions", value: ga.journey.sessions || ga.journey.users },
+                    { label: "Engaged sessions", value: ga.journey.engaged },
+                    { label: "Key events (conversions)", value: ga.journey.keyEvents },
+                  ]} />
+                  <div className="muted small">Visitors arrive → engage → convert. Percentages show how many continue to each stage.</div>
                 </>
               )}
               <div className="rpt-grid" style={{ marginTop: 14 }}>

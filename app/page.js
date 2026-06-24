@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Report from "./Report";
+import Report, { FlowFunnel } from "./Report";
 
 function Logo() {
   return (
@@ -340,6 +340,15 @@ export default function Page() {
                 <div className="muted small" style={{ marginTop: 6 }}>GA4 property {ga.queryProperty} · {ga.range.curStart} → {ga.range.curEnd}</div>
               </div>
             </div>
+            {ga.journey && (<>
+              <div className="section-h">User flow (start → end)</div>
+              <FlowFunnel stages={[
+                { label: "Sessions", value: ga.journey.sessions || ga.journey.users },
+                { label: "Engaged sessions", value: ga.journey.engaged },
+                { label: "Key events", value: ga.journey.keyEvents },
+              ]} />
+              <div className="section-h">Audience & engagement</div>
+            </>)}
             <div className="grid2cards">
               <div className="cat"><h3>Most viewed pages (vs previous period)</h3>
                 <KVList rows={ga.topPages.map((p) => ({ k: p.page, v: `${num(p.views)} (${p.views - p.prevViews >= 0 ? "+" : ""}${num(p.views - p.prevViews)})` }))} /></div>
