@@ -174,6 +174,28 @@ input[type="date"].inp{padding:9px 12px}
 .flowbar{min-width:120px;max-width:100%;box-sizing:border-box;background:var(--lime);color:var(--ink);border-radius:10px;padding:11px 16px;display:flex;justify-content:space-between;gap:16px;font-weight:800;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .flowname,.flowval{white-space:nowrap}
 
+/* per-page flow (entries vs views) */
+.pageflow{display:flex;flex-direction:column;gap:11px;margin-top:8px}
+.pflegend{display:flex;gap:18px;font-size:11px;color:var(--muted);margin-bottom:2px;flex-wrap:wrap}
+.pflegend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.pflegend i.e{background:var(--ink)}
+.pflegend i.v{background:var(--lime)}
+.pfrow{min-width:0}
+.pfpage{color:var(--ink);font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.pfbars{display:flex;flex-direction:column;gap:3px}
+.pfbar{display:flex;align-items:center;gap:8px;min-width:0}
+.pffill{height:12px;border-radius:999px;flex:none;min-width:2px}
+.pffill.e{background:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pffill.v{background:var(--lime);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pfv{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* schema type tags (non-bold list) */
+.schemalist{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.schematag{font-weight:500;font-size:12px;color:var(--ink);background:var(--lilac);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+
+/* AI assistant badge */
+.aibadge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:18px;padding:0 5px;border-radius:5px;color:#fff;font-size:9.5px;font-weight:800;margin-right:8px;vertical-align:middle;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
 @media print {
   .noprint{display:none !important}
   body{background:#fff}

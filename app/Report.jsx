@@ -70,6 +70,42 @@ export function FlowFunnel({ stages }) {
   );
 }
 
+// Per-page flow: for each top page, entries (where journeys start) vs total views.
+export function PageFlow({ entries, views }) {
+  const eMap = Object.fromEntries((entries || []).map((e) => [e.page, e.sessions]));
+  const merged = (views || []).slice(0, 8).map((v) => ({ page: v.page, views: v.views, entries: eMap[v.page] || 0 }));
+  if (!merged.length) return <div className="muted small">No page data for this period.</div>;
+  const max = Math.max(...merged.map((m) => m.views), 1);
+  return (
+    <div className="pageflow">
+      <div className="pflegend"><span><i className="e" />Entries (journeys started here)</span><span><i className="v" />Views (total)</span></div>
+      {merged.map((m, i) => (
+        <div className="pfrow" key={i}>
+          <div className="pfpage" title={m.page}>{m.page}</div>
+          <div className="pfbars">
+            <div className="pfbar"><span className="pffill e" style={{ width: Math.round((m.entries / max) * 100) + "%" }} /><span className="pfv">{num(m.entries)}</span></div>
+            <div className="pfbar"><span className="pffill v" style={{ width: Math.round((m.views / max) * 100) + "%" }} /><span className="pfv">{num(m.views)}</span></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Brand-coloured badge shown before each AI assistant name.
+const AI_BADGE = {
+  "ChatGPT": { bg: "#10A37F", t: "GPT" },
+  "Gemini": { bg: "#1A73E8", t: "G" },
+  "Perplexity": { bg: "#20808D", t: "P" },
+  "Microsoft Copilot": { bg: "#0078D4", t: "C" },
+  "Claude": { bg: "#D97757", t: "A" },
+  "Other AI": { bg: "#6b7280", t: "AI" },
+};
+function AiBadge({ label }) {
+  const b = AI_BADGE[label] || { bg: "#6b7280", t: (label || "?")[0] };
+  return <span className="aibadge" style={{ background: b.bg }}>{b.t}</span>;
+}
+
 const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
 
 const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
@@ -336,7 +372,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               <div className="metrics"><div className="metric"><div className="m-label">AI-referred users</div><div className="m-value">{num(ga.ai.total)}</div></div></div>
               <table className="rpt-table" style={{ marginTop: 10 }}>
                 <thead><tr><th>Assistant</th><th>Users</th></tr></thead>
-                <tbody>{ga.ai.rows.map((r, i) => <tr key={i}><td>{r.source}</td><td>{num(r.users)}</td></tr>)}</tbody>
+                <tbody>{ga.ai.rows.map((r, i) => <tr key={i}><td><AiBadge label={r.source} />{r.source}</td><td>{num(r.users)}</td></tr>)}</tbody>
               </table>
             </section>
           )}
@@ -357,14 +393,9 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
                   <div className="muted small">Visitors arrive → engage → convert. Percentages show how many continue to each stage.</div>
                 </>
               )}
-              <div className="rpt-grid" style={{ marginTop: 14 }}>
-                <div className="rpt-card"><h3>Top entry pages (where journeys start)</h3>
-                  <Bars rows={(ga.landingPages || []).map((p) => ({ label: p.page, value: p.sessions }))} />
-                </div>
-                <div className="rpt-card"><h3>Most-viewed pages</h3>
-                  <Bars rows={ga.topPages.map((p) => ({ label: p.page, value: p.views }))} />
-                </div>
-              </div>
+              <h3 style={{ marginTop: 16 }}>Flow by page — entries vs views</h3>
+              <p className="muted small" style={{ marginTop: 0 }}>For each top page: how many visitors <b>start</b> their journey there (entries) vs how many <b>reach</b> it overall (views).</p>
+              <PageFlow entries={ga.landingPages} views={ga.topPages} />
             </section>
           )}
 
@@ -395,8 +426,13 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               <div className="metrics">
                 <Metric label="AI readiness" value={llm.score + "/100"} cur={llm.score} prev={llm.score} />
                 <div className="metric"><div className="m-label">Grade</div><div className="m-value">{llm.grade}</div></div>
-                <div className="metric"><div className="m-label">Schema types</div><div className="m-value" style={{ fontSize: 14 }}>{llm.schemaTypes && llm.schemaTypes.length ? llm.schemaTypes.join(", ") : "none"}</div></div>
               </div>
+              {llm.schemaTypes && llm.schemaTypes.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <div className="m-label">Schema types detected ({llm.schemaTypes.length})</div>
+                  <div className="schemalist">{llm.schemaTypes.map((t, i) => <span className="schematag" key={i}>{t}</span>)}</div>
+                </div>
+              )}
               <h3>Checks</h3>
               <div className="rpt-checks">
                 {llm.checks.map((c) => (
