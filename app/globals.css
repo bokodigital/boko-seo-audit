@@ -147,6 +147,19 @@ input[type="date"].inp{padding:9px 12px}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;background:var(--lilac);border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted);white-space:nowrap}
 
+/* journey funnel + bar charts */
+.funnel{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+.frow{display:flex;align-items:center;gap:10px}
+.flabel{width:130px;flex:none;font-size:12px;font-weight:600;color:var(--ink)}
+.fbarwrap{flex:1;background:var(--line);border-radius:6px;overflow:hidden}
+.fbar{display:block;background:var(--lime);color:var(--ink);font-size:11px;font-weight:800;padding:5px 9px;border-radius:6px;text-align:right;white-space:nowrap;min-width:34px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bars{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+.barrow{display:flex;align-items:center;gap:8px;font-size:12px}
+.barlabel{width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.bartrack{flex:1;height:14px;background:var(--line);border-radius:999px;overflow:hidden}
+.barfill{height:100%;background:var(--lime);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.barval{width:48px;text-align:right;color:var(--muted);white-space:nowrap}
+
 @media print {
   .noprint{display:none !important}
   body{background:#fff}

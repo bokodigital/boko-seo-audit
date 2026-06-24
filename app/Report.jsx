@@ -29,6 +29,23 @@ function Metric({ label, value, cur, prev, lowerBetter, suffix }) {
   );
 }
 
+// Horizontal bar chart (pure CSS, prints cleanly, no external lib).
+function Bars({ rows, max }) {
+  if (!rows || !rows.length) return <div className="muted small">No data for this period.</div>;
+  const top = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <div className="bars">
+      {rows.slice(0, 8).map((r, i) => (
+        <div className="barrow" key={i}>
+          <div className="barlabel" title={r.label}>{r.label}</div>
+          <div className="bartrack"><div className="barfill" style={{ width: Math.max(2, Math.round((r.value / (max || top)) * 100)) + "%" }} /></div>
+          <div className="barval">{num(r.value)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
 
 const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
@@ -303,17 +320,30 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
           {ga && (
             <section className="rpt-sec">
               <h2>User journey</h2>
-              <p className="muted small">Where visits begin and which pages they reach. (A full click-by-click path needs GA4 Path Exploration; this shows entry points and the most-viewed pages.)</p>
-              <div className="rpt-grid">
-                <div className="rpt-card"><h3>Top entry pages</h3>
-                  <table className="rpt-table"><thead><tr><th>Landing page</th><th>Sessions</th></tr></thead><tbody>
-                    {(ga.landingPages && ga.landingPages.length) ? ga.landingPages.map((p, i) => <tr key={i}><td>{p.page}</td><td>{num(p.sessions)}</td></tr>) : <tr><td className="muted">No landing-page data.</td></tr>}
-                  </tbody></table>
+              <p className="muted small">How visitors move through the site — the conversion funnel, where journeys begin, and the pages they reach. (A literal click-by-click path needs GA4 Path Exploration; this is the API-available equivalent.)</p>
+              {ga.journey && (
+                <>
+                  <h3>Conversion funnel</h3>
+                  <div className="funnel">
+                    {[["Active users", ga.journey.users], ["Sessions", ga.journey.sessions], ["Engaged sessions", ga.journey.engaged], ["Key events", ga.journey.keyEvents]].map((s, i, arr) => {
+                      const mx = arr[0][1] || 1;
+                      return (
+                        <div className="frow" key={s[0]}>
+                          <span className="flabel">{s[0]}</span>
+                          <span className="fbarwrap"><span className="fbar" style={{ width: Math.max(8, Math.round((s[1] / mx) * 100)) + "%" }}>{num(s[1])}</span></span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="muted small">Each stage as a share of active users — shows how many visitors engage and convert.</div>
+                </>
+              )}
+              <div className="rpt-grid" style={{ marginTop: 14 }}>
+                <div className="rpt-card"><h3>Top entry pages (where journeys start)</h3>
+                  <Bars rows={(ga.landingPages || []).map((p) => ({ label: p.page, value: p.sessions }))} />
                 </div>
                 <div className="rpt-card"><h3>Most-viewed pages</h3>
-                  <table className="rpt-table"><thead><tr><th>Page</th><th>Views</th></tr></thead><tbody>
-                    {ga.topPages.map((p, i) => <tr key={i}><td>{p.page}</td><td>{num(p.views)}</td></tr>)}
-                  </tbody></table>
+                  <Bars rows={ga.topPages.map((p) => ({ label: p.page, value: p.views }))} />
                 </div>
               </div>
             </section>
