@@ -83,8 +83,8 @@ export function PageFlow({ entries, views }) {
         <div className="pfrow" key={i}>
           <div className="pfpage" title={m.page}>{m.page}</div>
           <div className="pfbars">
-            <div className="pfbar"><span className="pffill e" style={{ width: Math.round((m.entries / max) * 100) + "%" }} /><span className="pfv">{num(m.entries)}</span></div>
-            <div className="pfbar"><span className="pffill v" style={{ width: Math.round((m.views / max) * 100) + "%" }} /><span className="pfv">{num(m.views)}</span></div>
+            <div className="pfbar"><span className="pftrack"><span className="pffill e" style={{ width: Math.max(2, Math.round((m.entries / max) * 100)) + "%" }} /></span><span className="pfv">{num(m.entries)}</span></div>
+            <div className="pfbar"><span className="pftrack"><span className="pffill v" style={{ width: Math.max(2, Math.round((m.views / max) * 100)) + "%" }} /></span><span className="pfv">{num(m.views)}</span></div>
           </div>
         </div>
       ))}
@@ -92,18 +92,18 @@ export function PageFlow({ entries, views }) {
   );
 }
 
-// Brand-coloured badge shown before each AI assistant name.
-const AI_BADGE = {
-  "ChatGPT": { bg: "#10A37F", t: "GPT" },
-  "Gemini": { bg: "#1A73E8", t: "G" },
-  "Perplexity": { bg: "#20808D", t: "P" },
-  "Microsoft Copilot": { bg: "#0078D4", t: "C" },
-  "Claude": { bg: "#D97757", t: "A" },
-  "Other AI": { bg: "#6b7280", t: "AI" },
+// Real brand logo (favicon) shown before each AI assistant name.
+const AI_DOMAIN = {
+  "ChatGPT": "chatgpt.com",
+  "Gemini": "gemini.google.com",
+  "Perplexity": "perplexity.ai",
+  "Microsoft Copilot": "copilot.microsoft.com",
+  "Claude": "claude.ai",
 };
 function AiBadge({ label }) {
-  const b = AI_BADGE[label] || { bg: "#6b7280", t: (label || "?")[0] };
-  return <span className="aibadge" style={{ background: b.bg }}>{b.t}</span>;
+  const d = AI_DOMAIN[label];
+  if (d) return <img className="ailogo" src={`https://www.google.com/s2/favicons?domain=${d}&sz=64`} alt="" />;
+  return <span className="aibadge" style={{ background: "#6b7280" }}>AI</span>;
 }
 
 const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
