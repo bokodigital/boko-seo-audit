@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Report, { FlowFunnel, Bars } from "./Report";
+import Roadmap from "./Roadmap";
 
 function Logo() {
   return (
@@ -224,6 +225,7 @@ export default function Page() {
           <button className={"tab" + (view === "audit" ? " active" : "")} onClick={() => setView("audit")}>On-page audit</button>
           <button className={"tab" + (view === "analytics" ? " active" : "")} onClick={() => setView("analytics")}>Analytics & Search</button>
           <button className={"tab" + (view === "report" ? " active" : "")} onClick={() => { setView("report"); if (!gaState.loaded) loadProperties(); if (!gscState.loaded) loadSites(); }}>Monthly Report</button>
+          <button className={"tab" + (view === "roadmap" ? " active" : "")} onClick={() => { setView("roadmap"); if (!gscState.loaded) loadSites(); }}>Roadmap</button>
         </div>
 
         {view === "audit" && (<>
@@ -439,6 +441,10 @@ export default function Page() {
 
         {view === "report" && (
           <Report api={api} properties={gaState.properties} sites={gscState.sites} defaultUrl={lastOrigin || url} start={start} end={end} />
+        )}
+
+        {view === "roadmap" && (
+          <Roadmap api={api} sites={gscState.sites} defaultUrl={lastOrigin || url} start={start} end={end} />
         )}
 
         <div className="foot noprint">Boko Digital · Strategize. Execute. Deliver.</div>

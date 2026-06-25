@@ -106,13 +106,13 @@ function AiBadge({ label }) {
   return <span className="aibadge" style={{ background: "#6b7280" }}>AI</span>;
 }
 
-const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
+export const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
 
 const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
 
 // Synthesise a DEEP, data-specific SEO roadmap — naming the actual pages,
 // queries and checks found in this audit rather than generic advice.
-function buildRoadmap(data) {
+export function buildRoadmap(data) {
   const steps = [];
   const au = data.audit, llm = data.llm, g = data.gsc;
   const add = (phase, title, action, why, impact, effort) => steps.push({ phase, title, action, why, impact, effort });
