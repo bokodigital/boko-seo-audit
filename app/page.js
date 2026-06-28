@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Report, { FlowFunnel, Bars } from "./Report";
-import Roadmap from "./Roadmap";
+import Roadmap, { RoadmapView } from "./Roadmap";
 
 function Logo() {
   return (
@@ -61,6 +61,8 @@ export default function Page() {
   const [lastOrigin, setLastOrigin] = useState("");
   const [dr, setDr] = useState(null);
   const [crawl, setCrawl] = useState(null);
+  const [rmLlm, setRmLlm] = useState(null);
+  const [rmGsc, setRmGsc] = useState(null);
 
   // analytics
   const [gaState, setGaState] = useState({ loaded: false, configured: false, properties: [], error: "" });
@@ -87,7 +89,7 @@ export default function Page() {
 
   const run = async () => {
     if (!url.trim()) return;
-    setLoading(true); setError(""); setReport(null); setDr(null); setCrawl(null);
+    setLoading(true); setError(""); setReport(null); setDr(null); setCrawl(null); setRmLlm(null); setRmGsc(null);
     try {
       const r = await api("/api/audit", { method: "POST", body: JSON.stringify({ url }) });
       const d = await r.json();
@@ -100,6 +102,15 @@ export default function Page() {
         .then((res) => res.json())
         .then((x) => { if (x && x.configured !== false && typeof x.domainRating === "number") setDr(x.domainRating); })
         .catch(() => {});
+      // Auto-build the roadmap from this audit: AI readiness + (if available) Search Console.
+      api("/api/llm", { method: "POST", body: JSON.stringify({ url: origin }) })
+        .then((res) => res.json()).then((x) => { if (x && !x.error) setRmLlm(x); }).catch(() => {});
+      if (!gscState.loaded) loadSites();
+      let host = ""; try { host = new URL(origin).host; } catch (e) {}
+      const match = (gscState.sites || []).find((s) => s.siteUrl === origin + "/" || s.siteUrl === "sc-domain:" + host || s.siteUrl.replace(/\/$/, "") === origin);
+      const siteUrl = match ? match.siteUrl : origin + "/";
+      api("/api/gsc", { method: "POST", body: JSON.stringify({ siteUrl, start, end }) })
+        .then((res) => res.json()).then((x) => { if (x && !x.error) setRmGsc(x); }).catch(() => {});
     } catch (e) { setError(e.message || String(e)); } finally { setLoading(false); }
   };
 
@@ -309,6 +320,14 @@ export default function Page() {
               </div>
             ))}
           </>)}
+
+          {report && (
+            <div style={{ marginTop: 24 }}>
+              <div className="section-h">Your SEO roadmap — auto-generated from this audit</div>
+              <p className="muted small" style={{ marginTop: 0 }}>Built from the crawl, Ahrefs Domain Rating, your Search Console keywords and the AI-readiness check above. Prioritised actions, the keywords with the best organic upside, how to improve AI/LLM visibility, and where to earn links.</p>
+              <RoadmapView data={{ audit: report, llm: rmLlm, gsc: rmGsc, dr }} />
+            </div>
+          )}
         </>)}
 
         {view === "analytics" && (<>
@@ -444,7 +463,7 @@ export default function Page() {
         )}
 
         {view === "roadmap" && (
-          <Roadmap api={api} sites={gscState.sites} defaultUrl={lastOrigin || url} start={start} end={end} />
+          <Roadmap data={report ? { audit: report, llm: rmLlm, gsc: rmGsc, dr } : null} />
         )}
 
         <div className="foot noprint">Boko Digital · Strategize. Execute. Deliver.</div>

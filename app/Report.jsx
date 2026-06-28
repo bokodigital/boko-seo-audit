@@ -114,7 +114,7 @@ const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +
 // queries and checks found in this audit rather than generic advice.
 export function buildRoadmap(data) {
   const steps = [];
-  const au = data.audit, llm = data.llm, g = data.gsc;
+  const au = data.audit, llm = data.llm, g = data.gsc, dr = data.dr;
   const add = (phase, title, action, why, impact, effort) => steps.push({ phase, title, action, why, impact, effort });
 
   // ---- Search Console: query-level opportunities (the highest-ROI, most specific) ----
@@ -191,9 +191,12 @@ export function buildRoadmap(data) {
     "What gets measured gets grown.", "Low", "Low");
 
   // ---- ORGANIC TRAFFIC GROWTH (Google Analytics + Search Console) ----
-  add(PHASES[2], "Build authority with backlinks / digital PR",
-    "Publish one link-worthy asset (a data study, benchmark or strong opinion piece) and pitch it to marketing publications and journalists; guest-post on relevant blogs; and claim reputable directory listings. Backlinks are the strongest off-page ranking factor — they lift Search Console impressions and average position, which feeds GA4 organic users.",
-    "More referring domains = higher rankings across the whole site.", "High", "High");
+  add(PHASES[2], dr != null ? `Grow Domain Rating (currently ${dr}) with quality backlinks` : "Build authority with backlinks / digital PR",
+    `${dr != null ? `Your Ahrefs Domain Rating is ${dr} — ` : ""}Publish one genuinely link-worthy asset (a data study, benchmark or strong opinion piece) and pitch it to marketing publications and journalists; guest-post on relevant blogs; and pursue partner/supplier links. Prioritise a few high-authority referring domains over volume — even 5–10 good ones can lift DR and rankings sitewide. Backlinks are the strongest off-page ranking factor and feed Search Console impressions → GA4 organic users.`,
+    "More authoritative referring domains = higher rankings across the whole site.", "High", "High");
+  add(PHASES[1], "List on high-value directories & local citations",
+    "Build consistent name/address/phone (NAP) listings on the directories that move local rankings and feed AI engines: Google Business Profile, Bing Places and Apple Business Connect first, then True Local, Yellow Pages AU, Yelp AU, Hotfrog, StartLocal, Aussie Web and Local Search; plus your industry/association directories. For agency/B2B, also claim Clutch, DesignRush, GoodFirms and Sortlist. Keep every listing identical — same NAP, categories and URL.",
+    "Citations are a top local-ranking signal, a durable backlink source, and authoritative places AI assistants read to name and verify the business.", "Medium", "Low");
   add(PHASES[1], "Internal-link your money pages",
     "Add contextual links from your highest-traffic pages and blog posts to your core service pages using descriptive keyword anchor text. It passes authority to the pages you want ranking and is one of the fastest on-site levers.",
     "Internal links concentrate ranking power where it converts.", "Medium", "Low");
