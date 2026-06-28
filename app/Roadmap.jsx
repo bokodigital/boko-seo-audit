@@ -5,6 +5,24 @@ import { buildRoadmap, PHASES } from "./Report";
 const num = (n) => Number(n || 0).toLocaleString();
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
+// External links & local directories to build (AU-focused). Consistent NAP
+// listings lift local rankings, send referral traffic, and give AI assistants
+// authoritative sources that name the business.
+const DIRECTORIES = [
+  { name: "Google Business Profile", url: "https://business.google.com", type: "Local listing", why: "The biggest local-traffic and map-pack driver; also a top source AI assistants read." },
+  { name: "Bing Places", url: "https://www.bingplaces.com", type: "Local listing", why: "Feeds Bing and Microsoft Copilot; claim it straight from your Google profile." },
+  { name: "Apple Business Connect", url: "https://businessconnect.apple.com", type: "Local listing", why: "Powers Apple Maps and Siri results." },
+  { name: "True Local", url: "https://www.truelocal.com.au", type: "AU directory", why: "Major Australian consumer directory and strong local citation." },
+  { name: "Yellow Pages AU", url: "https://www.yellowpages.com.au", type: "AU directory", why: "High-authority AU citation with referral traffic." },
+  { name: "Yelp Australia", url: "https://www.yelp.com.au", type: "AU reviews", why: "Reviews plus a citation that AI answer engines frequently cite." },
+  { name: "Hotfrog Australia", url: "https://www.hotfrog.com.au", type: "AU directory", why: "Free business listing and backlink." },
+  { name: "StartLocal", url: "https://www.startlocal.com.au", type: "AU directory", why: "Australia-only local business directory." },
+  { name: "Word of Mouth (WOMO)", url: "https://www.womo.com.au", type: "AU reviews", why: "Trusted AU reviews directory for service businesses." },
+  { name: "Clutch / DesignRush / GoodFirms / Sortlist", url: "https://clutch.co", type: "Agency / B2B", why: "Where buyers and LLMs compare agencies; review-driven authority and citations." },
+  { name: "Industry & local associations", url: "", type: "Niche / trust", why: "Chamber of commerce, trade bodies and council business lists — high-trust, topical links." },
+  { name: "SourceBottle / HARO", url: "https://www.sourcebottle.com", type: "Digital PR", why: "Answer journalist requests to earn editorial backlinks and brand mentions." },
+];
+
 // Keywords with real organic upside: already ranking page 1–2 (pos 4–20) with
 // impressions — the realistic, competitive wins, ordered by opportunity size.
 export function buildKeywordOpportunities(data) {
@@ -112,6 +130,21 @@ export function RoadmapView({ data, withPrint = false }) {
       ) : (
         <p className="muted small">Add the matching Search Console property so the roadmap can list the exact keywords with organic upside for this domain.</p>
       )}
+
+      <div className="section-h" style={{ marginTop: 20 }}>External links &amp; local directories to build</div>
+      <p className="muted small" style={{ marginTop: 0 }}>Claim and complete these to grow referral traffic, local rankings and AI visibility. Use an identical business name, address, phone and URL on every one (consistent NAP), add photos and a steady stream of reviews, and link back to your site.</p>
+      <table className="rpt-table">
+        <thead><tr><th>Directory / channel</th><th>Type</th><th>Why it helps</th></tr></thead>
+        <tbody>
+          {DIRECTORIES.map((d, i) => (
+            <tr key={i}>
+              <td>{d.url ? <a href={d.url} target="_blank" rel="noopener noreferrer"><b>{d.name}</b></a> : <b>{d.name}</b>}</td>
+              <td>{d.type}</td>
+              <td className="muted small">{d.why}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <div className="section-h" style={{ marginTop: 20 }}>Content suggestions</div>
       <p className="muted small" style={{ marginTop: 0 }}>Specific content to create next, generated from your real queries and gaps.</p>

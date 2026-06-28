@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Report, { FlowFunnel, Bars } from "./Report";
-import Roadmap, { RoadmapView } from "./Roadmap";
+import Roadmap from "./Roadmap";
 
 function Logo() {
   return (
@@ -320,14 +320,6 @@ export default function Page() {
               </div>
             ))}
           </>)}
-
-          {report && (
-            <div style={{ marginTop: 24 }}>
-              <div className="section-h">Your SEO roadmap — auto-generated from this audit</div>
-              <p className="muted small" style={{ marginTop: 0 }}>Built from the crawl, Ahrefs Domain Rating, your Search Console keywords and the AI-readiness check above. Prioritised actions, the keywords with the best organic upside, how to improve AI/LLM visibility, and where to earn links.</p>
-              <RoadmapView data={{ audit: report, llm: rmLlm, gsc: rmGsc, dr }} />
-            </div>
-          )}
         </>)}
 
         {view === "analytics" && (<>
