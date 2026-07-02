@@ -527,7 +527,7 @@ export default function Page() {
         )}
 
         {view === "roadmap" && (
-          <Roadmap data={report ? { audit: report, llm: rmLlm, gsc: rmGsc, dr } : null} />
+          <Roadmap data={report ? { audit: { ...report, pages: (crawl && crawl.pages && crawl.pages.length) ? crawl.pages : report.pages }, llm: rmLlm, gsc: rmGsc, dr } : null} />
         )}
 
         <div className="foot noprint">Boko Digital · Strategize. Execute. Deliver.</div>
