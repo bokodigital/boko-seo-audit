@@ -153,35 +153,38 @@ export default function Page() {
     const pages = (crawl && crawl.pages && crawl.pages.length) ? crawl.pages : (report ? report.pages : []);
     if (!pages || !pages.length) return;
     const XLSX = await import("xlsx");
-    const metaRows = [];
-    pages.forEach((p) => {
-      const probs = [];
-      if (p.titleFlag === "missing") probs.push("Missing meta title");
-      else if (p.titleFlag === "long") probs.push("Meta title too long");
-      else if (p.titleFlag === "short") probs.push("Meta title too short");
-      if (p.descFlag === "missing") probs.push("Missing meta description");
-      else if (p.descFlag === "long") probs.push("Meta description too long");
-      else if (p.descFlag === "short") probs.push("Meta description too short");
-      if (probs.length) metaRows.push({
-        "Product / page title": p.h1Text || "",
-        "Meta title": p.title || "",
-        "Meta description": p.desc || "",
-        "Problem type": probs.join("; "),
-        "Page URL": p.url || p.path || "",
-      });
+    const wb = XLSX.utils.book_new();
+    let added = 0;
+    const metaRow = (p, problem) => ({
+      "Product / page title": p.h1Text || "",
+      "Meta title": p.title || "",
+      "Meta description": p.desc || "",
+      "Problem type": problem,
+      "Page URL": p.url || p.path || "",
     });
+    const addSheet = (name, rows) => { if (rows.length) { XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name); added++; } };
+
+    // One tab per distinct issue type.
+    addSheet("Missing meta title", pages.filter((p) => p.titleFlag === "missing").map((p) => metaRow(p, "Missing meta title")));
+    addSheet("Meta title too long", pages.filter((p) => p.titleFlag === "long").map((p) => metaRow(p, "Meta title too long")));
+    addSheet("Meta title too short", pages.filter((p) => p.titleFlag === "short").map((p) => metaRow(p, "Meta title too short")));
+    addSheet("Missing meta description", pages.filter((p) => p.descFlag === "missing").map((p) => metaRow(p, "Missing meta description")));
+    addSheet("Meta description too long", pages.filter((p) => p.descFlag === "long").map((p) => metaRow(p, "Meta description too long")));
+    addSheet("Meta description too short", pages.filter((p) => p.descFlag === "short").map((p) => metaRow(p, "Meta description too short")));
+
     const imgRows = [];
     pages.forEach((p) => (p.imgsNoAltList || []).forEach((src) => imgRows.push({
       "Image URL": src, "Page URL": p.url || p.path || "", "Problem type": "Missing alt text",
     })));
+    addSheet("Image alt issues", imgRows);
+
     const ogRows = [];
     pages.forEach((p) => { if (p.ogMissing && p.ogMissing.length) ogRows.push({
       "Page title": p.title || p.h1Text || "", "Page URL": p.url || p.path || "", "Problem description": "Missing " + p.ogMissing.join(", "),
     }); });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metaRows.length ? metaRows : [{ "Problem type": "No meta title/description issues found" }]), "Meta issues");
-    if (imgRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(imgRows), "Image issues");
-    if (ogRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ogRows), "OG tag issues");
+    addSheet("OG tag issues", ogRows);
+
+    if (!added) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet([{ "Result": "No meta / image / OG issues found" }]), "Summary");
     let host = "site"; try { host = new URL(report.finalUrl).host; } catch (e) {}
     XLSX.writeFile(wb, `boko-seo-issues-${host}.xlsx`);
   };
