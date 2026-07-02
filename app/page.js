@@ -148,6 +148,44 @@ export default function Page() {
   };
   const crawlAll = () => { if (report) doCrawl(report.finalUrl); };
 
+  // Export all pages with meta / alt / OG issues to a multi-sheet Excel workbook.
+  const exportIssues = async () => {
+    const pages = (crawl && crawl.pages && crawl.pages.length) ? crawl.pages : (report ? report.pages : []);
+    if (!pages || !pages.length) return;
+    const XLSX = await import("xlsx");
+    const metaRows = [];
+    pages.forEach((p) => {
+      const probs = [];
+      if (p.titleFlag === "missing") probs.push("Missing meta title");
+      else if (p.titleFlag === "long") probs.push("Meta title too long");
+      else if (p.titleFlag === "short") probs.push("Meta title too short");
+      if (p.descFlag === "missing") probs.push("Missing meta description");
+      else if (p.descFlag === "long") probs.push("Meta description too long");
+      else if (p.descFlag === "short") probs.push("Meta description too short");
+      if (probs.length) metaRows.push({
+        "Product / page title": p.h1Text || "",
+        "Meta title": p.title || "",
+        "Meta description": p.desc || "",
+        "Problem type": probs.join("; "),
+        "Page URL": p.url || p.path || "",
+      });
+    });
+    const imgRows = [];
+    pages.forEach((p) => (p.imgsNoAltList || []).forEach((src) => imgRows.push({
+      "Image URL": src, "Page URL": p.url || p.path || "", "Problem type": "Missing alt text",
+    })));
+    const ogRows = [];
+    pages.forEach((p) => { if (p.ogMissing && p.ogMissing.length) ogRows.push({
+      "Page title": p.title || p.h1Text || "", "Page URL": p.url || p.path || "", "Problem description": "Missing " + p.ogMissing.join(", "),
+    }); });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(metaRows.length ? metaRows : [{ "Problem type": "No meta title/description issues found" }]), "Meta issues");
+    if (imgRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(imgRows), "Image issues");
+    if (ogRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ogRows), "OG tag issues");
+    let host = "site"; try { host = new URL(report.finalUrl).host; } catch (e) {}
+    XLSX.writeFile(wb, `boko-seo-issues-${host}.xlsx`);
+  };
+
   const loadProperties = useCallback(async () => {
     const r = await api("/api/ga/properties");
     const d = await r.json();
@@ -315,6 +353,7 @@ export default function Page() {
                 )}
                 {crawl && !crawl.running && crawledPages && <span className="muted small">Audited all {crawl.total} sitemap pages.</span>}
                 {crawl && crawl.error && <span className="err">⚠ {crawl.error}</span>}
+                <button className="btn" onClick={exportIssues} disabled={!(pageList && pageList.length)}>⬇ Export issues (Excel)</button>
               </div>
               <div className="tallies" style={{ marginBottom: 12 }}>
                 <span className="tally fail">{pageSummary.titleMissing} missing title</span>
