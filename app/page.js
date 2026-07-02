@@ -28,7 +28,16 @@ function monthDefaults() {
   return { start: `${n.getFullYear()}-${p(n.getMonth() + 1)}-01`, end: `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}` };
 }
 function summarize(pages) {
+  const total = pages.length;
+  const errors = pages.filter((p) => p.level === "error").length;
+  const warnings = pages.filter((p) => p.level === "warn").length;
+  const ok = pages.filter((p) => p.level === "ok").length;
   return {
+    total, errors, warnings, ok,
+    healthScore: total ? Math.round((100 * (total - errors)) / total) : 0,
+    brokenPages: pages.filter((p) => p.status && p.status >= 400).length,
+    noindexPages: pages.filter((p) => p.noindex).length,
+    h1Missing: pages.filter((p) => p.h1 === 0).length,
     titleMissing: pages.filter((p) => p.titleFlag === "missing").length,
     descMissing: pages.filter((p) => p.descFlag === "missing").length,
     titleLong: pages.filter((p) => p.titleFlag === "long").length,
@@ -111,14 +120,15 @@ export default function Page() {
       const siteUrl = match ? match.siteUrl : origin + "/";
       api("/api/gsc", { method: "POST", body: JSON.stringify({ siteUrl, start, end }) })
         .then((res) => res.json()).then((x) => { if (x && !x.error) setRmGsc(x); }).catch(() => {});
+      doCrawl(d.finalUrl);
     } catch (e) { setError(e.message || String(e)); } finally { setLoading(false); }
   };
 
-  const crawlAll = async () => {
-    if (!report) return;
+  const doCrawl = async (finalUrl) => {
+    if (!finalUrl) return;
     setCrawl({ running: true, total: 0, done: 0, pages: [], error: "" });
     try {
-      const dr = await api("/api/audit/discover", { method: "POST", body: JSON.stringify({ url: report.finalUrl }) });
+      const dr = await api("/api/audit/discover", { method: "POST", body: JSON.stringify({ url: finalUrl }) });
       const dd = await dr.json();
       if (!dr.ok) throw new Error(dd.error || "Discovery failed");
       const urls = dd.urls || [];
@@ -136,6 +146,7 @@ export default function Page() {
       }
     } catch (e) { setCrawl({ running: false, total: 0, done: 0, pages: [], error: e.message || String(e) }); }
   };
+  const crawlAll = () => { if (report) doCrawl(report.finalUrl); };
 
   const loadProperties = useCallback(async () => {
     const r = await api("/api/ga/properties");
@@ -219,10 +230,13 @@ export default function Page() {
     </>);
   }
 
-  const ringStyle = report ? { background: `conic-gradient(var(--lime) ${report.score * 3.6}deg, var(--line) 0deg)` } : {};
   const crawledPages = crawl && crawl.pages && crawl.pages.length ? crawl.pages : null;
   const pageList = crawledPages || (report ? report.pages : []) || [];
   const pageSummary = crawledPages ? summarize(crawledPages) : (report ? report.pageSummary : null);
+  const crawlComplete = !!(crawl && !crawl.running && crawledPages);
+  const siteScore = crawlComplete ? pageSummary.healthScore : null;
+  const displayScore = siteScore != null ? siteScore : (report ? report.score : 0);
+  const ringStyle = report ? { background: `conic-gradient(var(--lime) ${displayScore * 3.6}deg, var(--line) 0deg)` } : {};
   const usersDelta = ga ? ga.users.current - ga.users.previous : 0;
   const usersPctTxt = ga && ga.users.previous ? ((usersDelta / ga.users.previous) * 100).toFixed(0) + "%" : "—";
 
@@ -249,15 +263,28 @@ export default function Page() {
           {loading && <div className="loading"><div>Crawling pages and running checks</div><div style={{ marginTop: 10 }}><span className="dot" /><span className="dot" /><span className="dot" /></div></div>}
           {report && (<>
             <div className="scorecard">
-              <div className="ring" style={ringStyle}><div className="inner"><span className="num">{report.score}</span><span className="lbl">Health</span></div></div>
+              <div className="ring" style={ringStyle}><div className="inner"><span className="num">{displayScore}</span><span className="lbl">Health</span></div></div>
               <div className="score-meta">
-                <h2>{report.score >= 80 ? "Healthy" : report.score >= 50 ? "Needs work" : "Critical issues"}</h2>
+                <h2>{displayScore >= 80 ? "Healthy" : displayScore >= 50 ? "Needs work" : "Critical issues"}</h2>
                 <div className="url">{report.finalUrl}</div>
                 <div className="tallies">
-                  <span className="tally fail">{report.counts.fail} failed</span>
-                  <span className="tally warn">{report.counts.warn} warnings</span>
-                  <span className="tally pass">{report.counts.pass} passed</span>
+                  {crawlComplete ? (<>
+                    <span className="tally fail">{pageSummary.errors} pages with errors</span>
+                    <span className="tally warn">{pageSummary.warnings} pages with warnings</span>
+                    <span className="tally pass">{pageSummary.ok} clean</span>
+                  </>) : (<>
+                    <span className="tally fail">{report.counts.fail} failed</span>
+                    <span className="tally warn">{report.counts.warn} warnings</span>
+                    <span className="tally pass">{report.counts.pass} passed</span>
+                  </>)}
                   {dr !== null && <span className="tally pass">Ahrefs DR {dr}</span>}
+                </div>
+                <div className="muted small" style={{ marginTop: 6 }}>
+                  {crawlComplete
+                    ? `Site-wide health across all ${pageSummary.total} crawled pages (URLs without errors ÷ total). Broken links, no-index, and missing titles/H1s count as errors.`
+                    : crawl && crawl.running
+                      ? `Homepage score shown — crawling all pages (${crawl.done}/${crawl.total}); site-wide score updates when done.`
+                      : "Homepage configuration score. Full-site score appears after the page crawl completes."}
                 </div>
               </div>
             </div>
@@ -296,6 +323,9 @@ export default function Page() {
                 <span className="tally warn">{pageSummary.descLong + pageSummary.descShort} description length</span>
                 <span className="tally warn">{pageSummary.altIssues} missing alt</span>
                 <span className="tally warn">{pageSummary.ogMissing} missing OG</span>
+                {crawledPages && pageSummary.brokenPages > 0 && <span className="tally fail">{pageSummary.brokenPages} broken (4xx/5xx)</span>}
+                {crawledPages && pageSummary.noindexPages > 0 && <span className="tally fail">{pageSummary.noindexPages} noindex</span>}
+                {crawledPages && pageSummary.h1Missing > 0 && <span className="tally fail">{pageSummary.h1Missing} missing H1</span>}
               </div>
               {pageList.map((pg, i) => (
                 <div className="pagecard" key={i}>
