@@ -132,17 +132,18 @@ export default function Page() {
       const dd = await dr.json();
       if (!dr.ok) throw new Error(dd.error || "Discovery failed");
       const urls = dd.urls || [];
+      const breakdown = dd.breakdown || [];
       if (!urls.length) { setCrawl({ running: false, total: 0, done: 0, pages: [], error: "No sitemap URLs found to crawl." }); return; }
       const BATCH = 12;
       let acc = [];
-      setCrawl({ running: true, total: urls.length, done: 0, pages: [], error: "" });
+      setCrawl({ running: true, total: urls.length, done: 0, pages: [], error: "", breakdown });
       for (let i = 0; i < urls.length; i += BATCH) {
         const batch = urls.slice(i, i + BATCH);
         const pr = await api("/api/audit/pages", { method: "POST", body: JSON.stringify({ urls: batch }) });
         const pd = await pr.json();
         if (pr.ok && pd.pages) acc = acc.concat(pd.pages);
         const done = Math.min(i + BATCH, urls.length);
-        setCrawl({ running: done < urls.length, total: urls.length, done, pages: acc, error: "" });
+        setCrawl({ running: done < urls.length, total: urls.length, done, pages: acc, error: "", breakdown });
       }
     } catch (e) { setCrawl({ running: false, total: 0, done: 0, pages: [], error: e.message || String(e) }); }
   };
@@ -357,6 +358,11 @@ export default function Page() {
                 {crawl && !crawl.running && crawledPages && <span className="muted small">Audited all {crawl.total} sitemap pages.</span>}
                 {crawl && crawl.error && <span className="err">⚠ {crawl.error}</span>}
                 <button className="btn" onClick={exportIssues} disabled={!(pageList && pageList.length)}>⬇ Export issues (Excel)</button>
+                {crawl && !crawl.running && crawl.breakdown && crawl.breakdown.length > 0 && (
+                  <div className="muted small" style={{ marginTop: 6, width: "100%" }}>
+                    Coverage by sitemap: {crawl.breakdown.map((b) => `${(b.sitemap || "").split("/").pop()} (${b.count})`).join("  ·  ")}
+                  </div>
+                )}
               </div>
               <div className="tallies" style={{ marginBottom: 12 }}>
                 <span className="tally fail">{pageSummary.titleMissing} missing title</span>
