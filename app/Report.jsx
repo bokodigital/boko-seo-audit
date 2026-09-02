@@ -195,9 +195,9 @@ export function buildRoadmap(data) {
     const lenIssues = au.pages.filter((p) => ["long", "short"].includes(p.titleFlag) || ["long", "short"].includes(p.descFlag)).map((p) => p.path);
     const altIssues = au.pages.filter((p) => p.imgsNoAlt > 0);
     const ogIssues = au.pages.filter((p) => !p.ogOk).map((p) => p.path);
-    if (noTitle.length) add(PHASES[0], `Add <title> tags to ${noTitle.length} page(s)`, `Missing on: ${plist(noTitle)}. Write a unique 50–60 char title for each, leading with its primary keyword.`, "Pages without a title can't rank for their topic.", "High", "Low");
+    if (noTitle.length) add(PHASES[0], `Add <title> tags to ${noTitle.length} page(s)`, `Missing on: ${plist(noTitle)}. Write a unique 30–60 char title for each, leading with its primary keyword.`, "Pages without a title can't rank for their topic.", "High", "Low");
     if (noDesc.length) add(PHASES[0], `Add meta descriptions to ${noDesc.length} page(s)`, `Missing on: ${plist(noDesc)}. Add a unique 150–160 char description per page, summarising it with the keyword and a reason to click.`, "Descriptions drive click-through from the SERP.", "Medium", "Low");
-    if (lenIssues.length) add(PHASES[1], `Fix title/description lengths on ${lenIssues.length} page(s)`, `e.g. ${plist(lenIssues, 5)}. Bring titles to 50–60 and descriptions to 150–160 chars so Google doesn't truncate or rewrite them.`, "Out-of-range tags get cut off or replaced, hurting CTR.", "Medium", "Low");
+    if (lenIssues.length) add(PHASES[1], `Fix title/description lengths on ${lenIssues.length} page(s)`, `e.g. ${plist(lenIssues, 5)}. Bring titles to 30–60 and descriptions to 120–158 chars so Google doesn't truncate or rewrite them.`, "Out-of-range tags get cut off or replaced, hurting CTR.", "Medium", "Low");
     if (altIssues.length) add(PHASES[1], `Add image alt text on ${altIssues.length} page(s)`, `e.g. ${plist(altIssues.map((p) => `${p.path} (${p.imgsNoAlt} img)`), 5)}. Describe each image with its keyword where natural.`, "Helps accessibility and Google Images traffic.", "Low", "Low");
     if (ogIssues.length) add(PHASES[1], `Complete Open Graph tags on ${ogIssues.length} page(s)`, `e.g. ${plist(ogIssues, 5)}. Add og:title / og:description / og:image / og:url so shares and AI link previews render correctly.`, "Controls how links look when shared and cited.", "Low", "Low");
   }
