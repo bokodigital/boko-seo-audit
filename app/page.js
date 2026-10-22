@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Report, { FlowFunnel, Bars } from "./Report";
+import Report, { FlowFunnel, Bars, AiReferrals } from "./Report";
 import Roadmap from "./Roadmap";
 
 function Logo() {
@@ -454,19 +454,21 @@ export default function Page() {
               </div>
               <div className="section-h">Audience & engagement</div>
             </>)}
-            <div className="grid2cards">
+            {ga.ai && (<>
+              <div className="section-h">AI referrals (ChatGPT, Perplexity, Gemini, Copilot, Claude…)</div>
+              <AiReferrals ai={ga.ai} />
+            </>)}
+            <div className="grid2cards" style={{ marginTop: 12 }}>
               <div className="cat"><h3>Most viewed pages (vs previous period)</h3>
                 <KVList rows={ga.topPages.map((p) => ({ k: p.page, v: `${num(p.views)} (${p.views - p.prevViews >= 0 ? "+" : ""}${num(p.views - p.prevViews)})` }))} /></div>
               <div className="cat"><h3>Users by traffic source</h3>
                 <KVList rows={ga.sources.map((s) => ({ k: s.source || "(unknown)", v: num(s.users) }))} /></div>
               <div className="cat"><h3>Referral users by source</h3>
-                <KVList rows={ga.referrals.map((s) => ({ k: s.source, v: num(s.users) }))} /></div>
+                <KVList rows={ga.referrals.map((s) => ({ k: s.source + (s.ai ? "  · AI" : ""), v: num(s.users) }))} /></div>
               <div className="cat"><h3>Views by country</h3>
                 <KVList rows={ga.countries.map((c) => ({ k: c.country, v: num(c.views) }))} /></div>
               <div className="cat"><h3>Conversion events ({ga.events.metric})</h3>
                 <KVList rows={ga.events.rows.map((e) => ({ k: e.event, v: num(e.count) }))} /></div>
-              <div className="cat"><h3>Visits from AI assistants</h3>
-                <KVList rows={(ga.ai && ga.ai.rows && ga.ai.rows.length) ? ga.ai.rows.map((a) => ({ k: a.source, v: num(a.users) })) : []} /></div>
               <div className="cat"><h3>Top entry pages (where visits start)</h3>
                 <KVList rows={(ga.landingPages || []).map((p) => ({ k: p.page, v: num(p.sessions) }))} /></div>
             </div>

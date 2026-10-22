@@ -211,3 +211,9 @@ input[type="date"].inp{padding:9px 12px}
   .rpt-sec,.rpt-card,.metric,.rpt-issue{page-break-inside:avoid}
   .rpt-cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+/* AI referrals */
+.aiblock{margin-top:4px}
+.aibadge{background:#6b7280}
+.ainame{display:inline-flex;align-items:center;font-weight:600}
+.aiempty{margin-top:12px;padding:12px 14px;border:1px dashed var(--line);border-radius:12px;background:var(--lilac);font-size:13px;color:var(--ink)}
+.aiblock .rpt-table td{vertical-align:top}

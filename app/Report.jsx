@@ -93,17 +93,82 @@ export function PageFlow({ entries, views }) {
 }
 
 // Real brand logo (favicon) shown before each AI assistant name.
-const AI_DOMAIN = {
-  "ChatGPT": "chatgpt.com",
-  "Gemini": "gemini.google.com",
-  "Perplexity": "perplexity.ai",
-  "Microsoft Copilot": "copilot.microsoft.com",
-  "Claude": "claude.ai",
-};
-function AiBadge({ label }) {
-  const d = AI_DOMAIN[label];
-  if (d) return <img className="ailogo" src={`https://www.google.com/s2/favicons?domain=${d}&sz=64`} alt="" />;
-  return <span className="aibadge" style={{ background: "#6b7280" }}>AI</span>;
+function AiBadge({ domain }) {
+  if (domain) return <img className="ailogo" src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} alt="" />;
+  return <span className="aibadge">AI</span>;
+}
+
+const pctChange = (cur, prev) => (prev ? ((cur - prev) / prev) * 100 : null);
+function ChangeCell({ cur, prev }) {
+  const c = Number(cur || 0), p = Number(prev || 0);
+  if (!c && !p) return <span className="muted">-</span>;
+  if (!p) return <span className="delta up">new</span>;
+  const ch = pctChange(c, p);
+  const cls = ch > 0 ? "up" : ch < 0 ? "down" : "flat";
+  return <span className={"delta " + cls}>{ch > 0 ? "▲" : ch < 0 ? "▼" : "→"} {Math.abs(ch).toFixed(0)}%</span>;
+}
+
+// AI referral tracking: visits sent by ChatGPT, Perplexity, Gemini, Copilot,
+// Claude and other AI assistants, compared with the previous period.
+export function AiReferrals({ ai }) {
+  if (!ai) return null;
+  if (ai.error) return <div className="err">⚠ AI referral data could not be loaded from GA4 for this property.</div>;
+  const has = ai.sessions > 0 || ai.sessionsPrev > 0;
+  return (
+    <div className="aiblock">
+      <div className="metrics">
+        <Metric label="AI-referred sessions" value={num(ai.sessions)} cur={ai.sessions} prev={ai.sessionsPrev} />
+        <Metric label="AI-referred users" value={num(ai.users)} cur={ai.users} prev={ai.usersPrev} />
+        <Metric label="Share of all sessions" value={(ai.share * 100).toFixed(2) + "%"} cur={ai.share} prev={ai.sharePrev} suffix="%" />
+        <div className="metric">
+          <div className="m-label">AI engagement rate</div>
+          <div className="m-value">{ai.sessions ? pct(ai.engagementRate) : "-"}</div>
+          <div className="m-prev">site average {pct(ai.siteEngagementRate)}</div>
+        </div>
+      </div>
+      {ai.keyMetric && (
+        <div className="muted small" style={{ marginTop: 8 }}>
+          Key events from AI visits: <b>{num(ai.keyEvents)}</b> (previous period {num(ai.keyEventsPrev)}).
+        </div>
+      )}
+      {!has && (
+        <div className="aiempty">
+          No visits from AI assistants were recorded in this period or the previous one. This is the baseline to grow from:
+          the AI readiness fixes and off-site mentions in the roadmap are what get a site cited and clicked in AI answers.
+        </div>
+      )}
+      {ai.rows.length > 0 && (
+        <table className="rpt-table" style={{ marginTop: 12 }}>
+          <thead><tr><th>Assistant</th><th>Sessions</th><th>Users</th><th>Prev users</th><th>Change</th><th>Engaged</th>{ai.keyMetric && <th>Key events</th>}</tr></thead>
+          <tbody>
+            {ai.rows.map((x, i) => (
+              <tr key={i}>
+                <td><span className="ainame"><AiBadge domain={x.domain} />{x.source}</span>{x.rawSources && x.rawSources.length > 0 && <div className="muted small">{x.rawSources.join(", ")}</div>}</td>
+                <td>{num(x.sessions)}</td><td>{num(x.users)}</td><td>{num(x.usersPrev)}</td>
+                <td><ChangeCell cur={x.users} prev={x.usersPrev} /></td>
+                <td>{x.sessions ? pct(x.engagementRate) : "-"}</td>
+                {ai.keyMetric && <td>{num(x.keyEvents)}</td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {ai.landingPages && ai.landingPages.length > 0 && (
+        <>
+          <h3 style={{ marginTop: 16 }}>Pages AI assistants send people to</h3>
+          <p className="muted small" style={{ marginTop: 0 }}>The pages AI tools are citing and linking. Protect these and build more like them.</p>
+          <table className="rpt-table">
+            <thead><tr><th>Landing page</th><th>Sessions</th><th>From</th></tr></thead>
+            <tbody>{ai.landingPages.map((p, i) => <tr key={i}><td>{p.page}</td><td>{num(p.sessions)}</td><td className="muted small">{p.assistants.join(", ")}</td></tr>)}</tbody>
+          </table>
+        </>
+      )}
+      <p className="muted small" style={{ marginTop: 10 }}>
+        Identified by GA4 session source. Not included: clicks from Google AI Overviews and AI Mode (GA4 reports these as google / organic),
+        and AI apps that strip the referrer (these land in Direct). Treat this as a floor, not the full AI footprint.
+      </p>
+    </div>
+  );
 }
 
 export const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
@@ -230,16 +295,16 @@ export function buildRoadmap(data) {
 
   // ---- AI / LLM VISIBILITY GROWTH (always on — earning citations, not just on-page schema) ----
   add(PHASES[2], "Earn citations on sources LLMs trust",
-    "AI answers are synthesised mostly from third-party sources, so off-site presence is the biggest driver of AI visibility: get listed and reviewed on Clutch, G2, DesignRush and Google Business Profile; pursue mentions in “best digital agency” roundups and listicles; and answer relevant questions on Reddit, Quora and LinkedIn. The more authoritative places name Boko, the more ChatGPT/Gemini/Perplexity surface it.",
+    "AI answers are synthesised mostly from third-party sources, so off-site presence is the biggest driver of AI visibility: get listed and reviewed on Clutch, G2, DesignRush and Google Business Profile; pursue mentions in “best digital agency” roundups and listicles; and answer relevant questions on Reddit, Quora and LinkedIn. The more authoritative places name your business, the more ChatGPT/Gemini/Perplexity surface it.",
     "LLMs cite and paraphrase reputable third-party pages far more than a brand's own site.", "High", "Medium");
   add(PHASES[1], "Write answer-first, quotable content",
     "Lead each key page/section with a direct 2–3 sentence answer, then expand. Phrase H2s as the exact questions people ask, and add definitions, short lists and stats. This is the precise format ChatGPT, Gemini and Google AI lift into their answers.",
     "Concise, structured answers are what AI assistants quote verbatim.", "Medium", "Medium");
   add(PHASES[2], "Lock brand-entity consistency",
-    "Use an identical business name, address and phone everywhere, and add sameAs links (LinkedIn, Instagram, Facebook, Clutch) to your Organization JSON-LD so AI engines confidently recognise Boko as one entity and attribute mentions to it.",
+    "Use an identical business name, address and phone everywhere, and add sameAs links (LinkedIn, Instagram, Facebook, Clutch) to your Organization JSON-LD so AI engines confidently recognise your business as one entity and attribute mentions to it.",
     "Entity clarity is how AI engines connect scattered mentions to your brand.", "Medium", "Low");
   add(PHASES[1], "Track AI referrals every month",
-    "Use the “Visits from AI assistants” section above as your AI-visibility KPI — growing ChatGPT / Gemini / Perplexity / Copilot referrals month over month confirms these efforts are working.",
+    "Use the “AI referrals” section of this report as your AI-visibility KPI — growing ChatGPT / Gemini / Perplexity / Copilot referrals month over month confirms these efforts are working.",
     "What gets measured gets grown.", "Low", "Low");
 
   // ---- ORGANIC TRAFFIC GROWTH (Google Analytics + Search Console) ----
@@ -420,15 +485,11 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             </section>
           )}
 
-          {ga && ga.ai && ga.ai.rows && ga.ai.rows.length > 0 && (
+          {ga && ga.ai && (
             <section className="rpt-sec">
-              <h2>Visits from AI assistants</h2>
-              <p className="muted small">Users referred from AI search tools (ChatGPT, Gemini, Perplexity, Copilot, Claude…), identified by GA4 referral source.</p>
-              <div className="metrics"><div className="metric"><div className="m-label">AI-referred users</div><div className="m-value">{num(ga.ai.total)}</div></div></div>
-              <table className="rpt-table" style={{ marginTop: 10 }}>
-                <thead><tr><th>Assistant</th><th>Users</th></tr></thead>
-                <tbody>{ga.ai.rows.map((r, i) => <tr key={i}><td><AiBadge label={r.source} />{r.source}</td><td>{num(r.users)}</td></tr>)}</tbody>
-              </table>
+              <h2>AI referrals</h2>
+              <p className="muted small">Visits sent by AI assistants (ChatGPT, Perplexity, Gemini, Copilot, Claude and others), compared with the previous period.</p>
+              <AiReferrals ai={ga.ai} />
             </section>
           )}
 

@@ -17,6 +17,12 @@ No external API needed for this tab - it's a live server-side crawl.
 - **GA4 (current month vs last month):** users, most-viewed pages (with month-over-month delta),
   users by traffic source, referral users by source, views by country, and conversion events by name.
   You pick which GA4 property to report on.
+- **AI referrals:** sessions and users sent by ChatGPT, Perplexity, Gemini, Copilot, Claude, Meta AI,
+  Grok, DeepSeek and others, vs the previous period, with share of all sessions, engagement rate vs
+  site average, key events, and the landing pages AI tools send people to. Matched server-side with a
+  GA4 regex on `sessionSource` (list in `lib/ga.js` -> `AI_ASSISTANTS`). Google AI Overviews / AI Mode
+  clicks are reported by GA4 as google / organic and cannot be separated; apps that strip the referrer
+  land in Direct, so treat the number as a floor.
 - **Search Console:** top keywords this month (max 30) with clicks, impressions, CTR, position.
 
 These use Google's APIs via a **service account** (no per-user login).
