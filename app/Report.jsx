@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { BUSINESS_TYPES, DIRECTORIES, PHASES, siteProfile, directoriesFor, parseList, buildKeywordOpportunities, buildContentIdeas, buildRoadmap, matchProperty, propertyMismatch } from "@/lib/reportBuilders";
+import { clientFor, hostOf } from "@/lib/clients";
 
 const num = (n) => Number(n || 0).toLocaleString();
 const pct = (n) => (Number(n || 0) * 100).toFixed(1) + "%";
@@ -18,15 +20,29 @@ function Delta({ cur, prev, lowerBetter, suffix }) {
   return <span className={"delta " + cls}>{arrow} {val}</span>;
 }
 
+// Leave `prev` out when there is no previous-period figure (no delta is shown).
 function Metric({ label, value, cur, prev, lowerBetter, suffix }) {
+  const hasPrev = prev !== undefined && prev !== null;
   return (
     <div className="metric">
       <div className="m-label">{label}</div>
       <div className="m-value">{value}</div>
-      <Delta cur={cur} prev={prev} lowerBetter={lowerBetter} suffix={suffix} />
-      <div className="m-prev">prev: {suffix === "%" ? pct(prev) : suffix === "pos" ? Number(prev || 0).toFixed(1) : num(prev)}</div>
+      {hasPrev && <Delta cur={cur} prev={prev} lowerBetter={lowerBetter} suffix={suffix} />}
+      {hasPrev && <div className="m-prev">prev: {suffix === "%" ? pct(prev) : suffix === "pos" ? Number(prev || 0).toFixed(1) : num(prev)}</div>}
     </div>
   );
+}
+
+// Per-site report settings, remembered in this browser. Falls back to lib/clients.js.
+const settingsKey = (host) => `boko-report:${host}`;
+function loadSettings(host) {
+  const cfg = clientFor(host) || {};
+  const base = { type: "", listedOn: cfg.listedOn || [], exclude: (cfg.excludeKeywords || []).join(", ") };
+  try { const raw = window.localStorage.getItem(settingsKey(host)); if (raw) return { ...base, ...JSON.parse(raw) }; } catch (e) {}
+  return base;
+}
+function saveSettings(host, v) {
+  try { window.localStorage.setItem(settingsKey(host), JSON.stringify(v)); } catch (e) {}
 }
 
 // Horizontal bar chart (pure CSS, prints cleanly, no external lib).
@@ -106,187 +122,40 @@ function AiBadge({ label }) {
   return <span className="aibadge" style={{ background: "#6b7280" }}>AI</span>;
 }
 
-export const PHASES = ["Quick wins (this week)", "This month", "Next 90 days"];
-
-const plist = (arr, n = 6) => arr.slice(0, n).join(", ") + (arr.length > n ? ` +${arr.length - n} more` : "");
-
-// Synthesise a DEEP, data-specific SEO roadmap — naming the actual pages,
-// queries and checks found in this audit rather than generic advice.
-const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
-// External links & local directories to build (AU-focused).
-export const DIRECTORIES = [
-  { name: "Google Business Profile", url: "https://business.google.com", type: "Local listing", why: "The biggest local-traffic and map-pack driver; also a top source AI assistants read." },
-  { name: "Bing Places", url: "https://www.bingplaces.com", type: "Local listing", why: "Feeds Bing and Microsoft Copilot; claim it straight from your Google profile." },
-  { name: "Apple Business Connect", url: "https://businessconnect.apple.com", type: "Local listing", why: "Powers Apple Maps and Siri results." },
-  { name: "True Local", url: "https://www.truelocal.com.au", type: "AU directory", why: "Major Australian consumer directory and strong local citation." },
-  { name: "Yellow Pages AU", url: "https://www.yellowpages.com.au", type: "AU directory", why: "High-authority AU citation with referral traffic." },
-  { name: "Yelp Australia", url: "https://www.yelp.com.au", type: "AU reviews", why: "Reviews plus a citation that AI answer engines frequently cite." },
-  { name: "Hotfrog Australia", url: "https://www.hotfrog.com.au", type: "AU directory", why: "Free business listing and backlink." },
-  { name: "StartLocal", url: "https://www.startlocal.com.au", type: "AU directory", why: "Australia-only local business directory." },
-  { name: "Word of Mouth (WOMO)", url: "https://www.womo.com.au", type: "AU reviews", why: "Trusted AU reviews directory for service businesses." },
-  { name: "Clutch / DesignRush / GoodFirms / Sortlist", url: "https://clutch.co", type: "Agency / B2B", why: "Where buyers and LLMs compare agencies; review-driven authority and citations." },
-  { name: "Industry & local associations", url: "", type: "Niche / trust", why: "Chamber of commerce, trade bodies and council business lists — high-trust, topical links." },
-  { name: "SourceBottle / HARO", url: "https://www.sourcebottle.com", type: "Digital PR", why: "Answer journalist requests to earn editorial backlinks and brand mentions." },
-];
-
-// Keywords with real organic upside: already ranking page 1–2 (pos 4–20).
-export function buildKeywordOpportunities(data) {
-  const g = data.gsc;
-  if (!g || !g.rows || !g.rows.length) return [];
-  return g.rows
-    .filter((r) => r.position >= 4 && r.position <= 20 && r.impressions >= 5)
-    .map((r) => ({ query: r.query, position: Number(r.position), impressions: r.impressions, clicks: r.clicks, ctr: r.ctr, upside: Math.max(0, Math.round(r.impressions * (0.08 - (r.ctr || 0)))) }))
-    .sort((a, b) => b.impressions - a.impressions)
-    .slice(0, 12);
-}
-
-// Specific content ideas generated from the site's real queries + gaps.
-export function buildContentIdeas(data) {
-  const ideas = [];
-  const g = data.gsc, au = data.audit;
-  const seen = new Set();
-  const push = (title, type, keyword, why) => { const k = title.toLowerCase(); if (!seen.has(k)) { seen.add(k); ideas.push({ title, type, keyword, why }); } };
-  if (g && g.rows && g.rows.length) {
-    g.rows.filter((r) => /\b(how|what|why|where|who|when|can|is|are|does|do|best|guide)\b/i.test(r.query) || r.query.includes("?")).slice(0, 4)
-      .forEach((r) => push(`Guide / FAQ: “${cap(r.query)}”`, "How-to / FAQ", r.query, `Already ${num(r.impressions)} impressions (pos ${Number(r.position).toFixed(1)}) — a dedicated answer page can win the click and a featured snippet.`));
-    g.rows.filter((r) => r.position >= 4 && r.position <= 20 && r.impressions >= 5).sort((a, b) => b.impressions - a.impressions).slice(0, 4)
-      .forEach((r) => push(`In-depth page targeting “${r.query}”`, "Pillar / service page", r.query, `Ranking pos ${Number(r.position).toFixed(1)} with ${num(r.impressions)} impressions — deeper, better-optimised content can push it onto page 1.`));
-    const themes = [...new Set(g.rows.slice(0, 10).map((r) => r.query))].slice(0, 3);
-    if (themes.length) push(`Pillar hub: ${themes.join(" / ")}`, "Pillar + cluster", themes[0], "Group your strongest demand into one authoritative hub with supporting articles to win the whole topic.");
-  }
-  if (au && au.pages) {
-    au.pages.map((p) => p.path).filter((p) => /service|solution|product|work|marketing|develop|seo|ads|email|design/i.test(p)).slice(0, 2)
-      .forEach((p) => push(`Case study / results piece for ${p}`, "Case study", p, "Proof-driven content on service pages lifts conversions and earns backlinks."));
-  }
-  push("“X vs Y” comparison in your niche", "Comparison", "", "Comparison content captures high-intent searchers and is frequently cited by AI assistants.");
-  push("Annual checklist / template (lead magnet)", "Checklist / template", "", "Practical, linkable assets attract backlinks and email signups.");
-  return ideas.slice(0, 12);
-}
-
-export function buildRoadmap(data) {
-  const steps = [];
-  const au = data.audit, llm = data.llm, g = data.gsc, dr = data.dr;
-  const add = (phase, title, action, why, impact, effort) => steps.push({ phase, title, action, why, impact, effort });
-
-  // ---- Search Console: query-level opportunities (the highest-ROI, most specific) ----
-  if (g && g.rows && g.rows.length) {
-    const rows = g.rows;
-    // Striking distance: ranking positions 4–20 = page 1–2 boundary, biggest upside
-    g.rows.filter((r) => r.position >= 4 && r.position <= 20 && r.impressions >= 5)
-      .sort((a, b) => b.impressions - a.impressions).slice(0, 5)
-      .forEach((r) => add(PHASES[1],
-        `Move “${r.query}” onto page 1`,
-        `Currently position ${r.position.toFixed(1)} with ${num(r.impressions)} impressions/mo. Put this exact phrase in the target page's H1, <title> and first 100 words, add an on-page FAQ answering it, and add 2–3 internal links to that page using “${r.query}” as anchor text.`,
-        `Page-2 rankings earn almost no clicks; reaching positions 1–3 typically lifts CTR from ~0–1% to 5–15%.`, "High", "Medium"));
-    // High impressions, zero clicks = snippet/title problem (fast win)
-    rows.filter((r) => r.impressions >= 40 && r.clicks === 0)
-      .sort((a, b) => b.impressions - a.impressions).slice(0, 3)
-      .forEach((r) => add(PHASES[0],
-        `Win clicks for “${r.query}”`,
-        `You appear ${num(r.impressions)} times (avg pos ${r.position.toFixed(1)}) but get 0 clicks. Rewrite that page's <title> to lead with the searcher's goal + the phrase, and write a benefit-led 150–160 char meta description with a clear hook/CTA.`,
-        `High visibility with no clicks is purely a title/snippet issue — the fastest traffic gain available.`, "High", "Low"));
-  }
-
-  // ---- Per-page fixes, naming the actual pages ----
-  if (au && au.pages && au.pages.length) {
-    const noTitle = au.pages.filter((p) => p.titleFlag === "missing").map((p) => p.path);
-    const noDesc = au.pages.filter((p) => p.descFlag === "missing").map((p) => p.path);
-    const lenIssues = au.pages.filter((p) => ["long", "short"].includes(p.titleFlag) || ["long", "short"].includes(p.descFlag)).map((p) => p.path);
-    const altIssues = au.pages.filter((p) => p.imgsNoAlt > 0);
-    const ogIssues = au.pages.filter((p) => !p.ogOk).map((p) => p.path);
-    if (noTitle.length) add(PHASES[0], `Add <title> tags to ${noTitle.length} page(s)`, `Missing on: ${plist(noTitle)}. Write a unique 30–60 char title for each, leading with its primary keyword.`, "Pages without a title can't rank for their topic.", "High", "Low");
-    if (noDesc.length) add(PHASES[0], `Add meta descriptions to ${noDesc.length} page(s)`, `Missing on: ${plist(noDesc)}. Add a unique 150–160 char description per page, summarising it with the keyword and a reason to click.`, "Descriptions drive click-through from the SERP.", "Medium", "Low");
-    if (lenIssues.length) add(PHASES[1], `Fix title/description lengths on ${lenIssues.length} page(s)`, `e.g. ${plist(lenIssues, 5)}. Bring titles to 30–60 and descriptions to 120–158 chars so Google doesn't truncate or rewrite them.`, "Out-of-range tags get cut off or replaced, hurting CTR.", "Medium", "Low");
-    if (altIssues.length) add(PHASES[1], `Add image alt text on ${altIssues.length} page(s)`, `e.g. ${plist(altIssues.map((p) => `${p.path} (${p.imgsNoAlt} img)`), 5)}. Describe each image with its keyword where natural.`, "Helps accessibility and Google Images traffic.", "Low", "Low");
-    if (ogIssues.length) add(PHASES[1], `Complete Open Graph tags on ${ogIssues.length} page(s)`, `e.g. ${plist(ogIssues, 5)}. Add og:title / og:description / og:image / og:url so shares and AI link previews render correctly.`, "Controls how links look when shared and cited.", "Low", "Low");
-  }
-
-  // ---- Site-wide technical checks (specific failing items, not the meta ones above) ----
-  if (au && au.categories) {
-    au.categories.forEach((cat) => (cat.checks || []).forEach((c) => {
-      if ((c.status === "fail" || c.status === "warn") && c.recommendation && !["title", "description", "img-alt", "opengraph"].includes(c.id)) {
-        add(c.status === "fail" ? PHASES[0] : PHASES[1], c.label, c.recommendation, c.detail || "", c.status === "fail" ? "High" : "Medium", "Low");
-      }
-    }));
-  }
-
-  // ---- AI / LLM: concrete implementation steps tied to the failing checks ----
-  if (llm && llm.checks) {
-    const byId = Object.fromEntries(llm.checks.map((c) => [c.id, c]));
-    const sampleQ = (g && g.rows && g.rows[0] && g.rows[0].query) || "your top question keyword";
-    if (byId.jsonld && byId.jsonld.status !== "pass") add(PHASES[2], "Implement JSON-LD structured data", `Add sitewide Organization + WebSite (with SearchAction) + BreadcrumbList schema in <head>, plus Service schema on each service page and Article schema on blog posts. This is how ChatGPT, Gemini and Google AI identify what the business does and attribute answers to it.`, "AI engines rely on schema to extract entities and cite sources.", "High", "Medium");
-    if (byId.faq && byId.faq.status !== "pass") add(PHASES[2], "Add FAQ schema mirroring real searches", `Add FAQPage JSON-LD with 4–6 Q&As to your top service pages, using actual Search Console questions as the questions (e.g. “${sampleQ}”). FAQ answers are frequently lifted verbatim into AI answers and Google rich results.`, "Directly answerable, structured content is what AI assistants quote.", "Medium", "Medium");
-    if (byId.llmstxt && byId.llmstxt.status !== "pass") add(PHASES[2], "Publish an llms.txt file", `Create /llms.txt at the domain root — a short markdown list of your key pages (services, about, contact, top articles) each with a one-line summary, so LLM crawlers can map your offering. Keep it current as pages change.`, "Emerging standard for guiding AI crawlers to your best content.", "Medium", "Low");
-  }
-
-  // ---- Content strategy tied to the site's actual demand ----
-  if (g && g.rows && g.rows.length) {
-    const themes = [...new Set(g.rows.slice(0, 15).map((r) => r.query))].slice(0, 5);
-    add(PHASES[2], "Build a topic cluster around your real demand",
-      `Your impressions cluster around: ${themes.join("; ")}. Create one in-depth pillar page on that theme plus 3–4 supporting articles, all internally linked, to consolidate topical authority and capture the long tail — not one-off posts.`,
-      "Topic clusters compound: they lift the whole group of related queries, not a single page.", "High", "High");
-  }
-
-  // ---- AI / LLM VISIBILITY GROWTH (always on — earning citations, not just on-page schema) ----
-  add(PHASES[2], "Earn citations on sources LLMs trust",
-    "AI answers are synthesised mostly from third-party sources, so off-site presence is the biggest driver of AI visibility: get listed and reviewed on Clutch, G2, DesignRush and Google Business Profile; pursue mentions in “best digital agency” roundups and listicles; and answer relevant questions on Reddit, Quora and LinkedIn. The more authoritative places name Boko, the more ChatGPT/Gemini/Perplexity surface it.",
-    "LLMs cite and paraphrase reputable third-party pages far more than a brand's own site.", "High", "Medium");
-  add(PHASES[1], "Write answer-first, quotable content",
-    "Lead each key page/section with a direct 2–3 sentence answer, then expand. Phrase H2s as the exact questions people ask, and add definitions, short lists and stats. This is the precise format ChatGPT, Gemini and Google AI lift into their answers.",
-    "Concise, structured answers are what AI assistants quote verbatim.", "Medium", "Medium");
-  add(PHASES[2], "Lock brand-entity consistency",
-    "Use an identical business name, address and phone everywhere, and add sameAs links (LinkedIn, Instagram, Facebook, Clutch) to your Organization JSON-LD so AI engines confidently recognise Boko as one entity and attribute mentions to it.",
-    "Entity clarity is how AI engines connect scattered mentions to your brand.", "Medium", "Low");
-  add(PHASES[1], "Track AI referrals every month",
-    "Use the “Visits from AI assistants” section above as your AI-visibility KPI — growing ChatGPT / Gemini / Perplexity / Copilot referrals month over month confirms these efforts are working.",
-    "What gets measured gets grown.", "Low", "Low");
-
-  // ---- ORGANIC TRAFFIC GROWTH (Google Analytics + Search Console) ----
-  add(PHASES[2], dr != null ? `Grow Domain Rating (currently ${dr}) with quality backlinks` : "Build authority with backlinks / digital PR",
-    `${dr != null ? `Your Ahrefs Domain Rating is ${dr} — ` : ""}Publish one genuinely link-worthy asset (a data study, benchmark or strong opinion piece) and pitch it to marketing publications and journalists; guest-post on relevant blogs; and pursue partner/supplier links. Prioritise a few high-authority referring domains over volume — even 5–10 good ones can lift DR and rankings sitewide. Backlinks are the strongest off-page ranking factor and feed Search Console impressions → GA4 organic users.`,
-    "More authoritative referring domains = higher rankings across the whole site.", "High", "High");
-  add(PHASES[1], "List on high-value directories & local citations",
-    "Build consistent name/address/phone (NAP) listings on the directories that move local rankings and feed AI engines: Google Business Profile, Bing Places and Apple Business Connect first, then True Local, Yellow Pages AU, Yelp AU, Hotfrog, StartLocal, Aussie Web and Local Search; plus your industry/association directories. For agency/B2B, also claim Clutch, DesignRush, GoodFirms and Sortlist. Keep every listing identical — same NAP, categories and URL.",
-    "Citations are a top local-ranking signal, a durable backlink source, and authoritative places AI assistants read to name and verify the business.", "Medium", "Low");
-  add(PHASES[1], "Internal-link your money pages",
-    "Add contextual links from your highest-traffic pages and blog posts to your core service pages using descriptive keyword anchor text. It passes authority to the pages you want ranking and is one of the fastest on-site levers.",
-    "Internal links concentrate ranking power where it converts.", "Medium", "Low");
-  add(PHASES[1], "Improve page speed / Core Web Vitals",
-    "Compress and lazy-load images, defer non-critical scripts and trim heavy markup. Faster pages rank better in Google and cut bounce, growing engaged sessions in GA4.",
-    "Speed is both a ranking factor and a direct lever on engagement.", "Medium", "Medium");
-  if (g && g.rows && g.rows.some((r) => /near me|near/i.test(r.query))) {
-    const q = (g.rows.find((r) => /near me/i.test(r.query)) || g.rows.find((r) => /near/i.test(r.query)) || {}).query;
-    add(PHASES[1], "Win the local pack & Google Business Profile",
-      `You already show for local searches (e.g. “${q || "digital media company near me"}”). Fully optimise your Google Business Profile — correct categories & services, photos, weekly posts and a steady stream of reviews — to capture map-pack and “near me” traffic that sits above organic results.`,
-      "Local pack results rank above organic and convert highly.", "Medium", "Low");
-  }
-  add(PHASES[2], "Refresh & expand your top pages quarterly",
-    "Update your best-performing pages every quarter — fresh stats, expanded sections, current-year references — to defend rankings against content decay and pick up more long-tail queries.",
-    "Refreshing existing winners is higher-ROI than always starting new pages.", "Medium", "Low");
-  add(PHASES[1], "Set up Key Events in GA4",
-    "Mark form submissions, quote requests and calls as Key Events so traffic growth maps to leads — then optimise toward the pages and channels that actually convert, growing qualified traffic rather than vanity sessions.",
-    "Tying growth to conversions keeps it linked to revenue.", "Medium", "Low");
-  add(PHASES[2], "Capture featured snippets (position 0)",
-    "For question-style queries you rank for, add a concise 40–55 word answer directly under an H2 that matches the question. This wins the snippet box above the #1 result and lifts click-through.",
-    "Position 0 grabs clicks even when you're not ranked #1.", "Medium", "Low");
-
-  if (!steps.length) add(PHASES[1], "Run a full audit + connect Search Console", "Enter the site URL to crawl all pages, and connect Google so the roadmap can target your real pages and queries.", "The roadmap is generated from live audit + Search Console data.", "—", "—");
-  return steps;
-}
 
 export default function Report({ api, properties = [], sites = [], defaultUrl = "", start, end }) {
-  const [propertyId, setPropertyId] = useState(properties[0] ? properties[0].id : "");
-  const [site, setSite] = useState(sites[0] ? sites[0].siteUrl : "");
+  const [propertyId, setPropertyId] = useState("");
+  const [site, setSite] = useState("");
   const [url, setUrl] = useState(defaultUrl || (sites[0] ? sites[0].siteUrl.replace("sc-domain:", "https://") : ""));
+  const [picked, setPicked] = useState({ property: false, site: false });
   const [s, setS] = useState(start);
   const [e, setE] = useState(end);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [data, setData] = useState(null);
 
+  // Keep GA4 + Search Console on the audited site until someone picks one by hand.
+  // No match means "none" — never another client's data.
+  const host = hostOf(url || site);
+  useEffect(() => {
+    if (!picked.property) { const m = matchProperty(properties, url || site); setPropertyId(m ? m.id : ""); }
+    if (!picked.site && host) { const m = sites.find((x) => hostOf(x.siteUrl) === host); setSite(m ? m.siteUrl : ""); }
+    /* eslint-disable-next-line */
+  }, [properties, sites, url]);
+
+  const [settings, setSettings] = useState({ type: "", listedOn: [], exclude: "" });
+  useEffect(() => { if (host) setSettings(loadSettings(host)); }, [host]);
+  const updateSettings = (patch) => setSettings((prev) => { const v = { ...prev, ...patch }; if (host) saveSettings(host, v); return v; });
+  const toggleListed = (name) => updateSettings({ listedOn: settings.listedOn.includes(name) ? settings.listedOn.filter((n) => n !== name) : [...settings.listedOn, name] });
+
+  const property = properties.find((x) => x.id === propertyId);
+  const gaMismatch = propertyMismatch(property, url || site);
+  const siteMismatch = !!(site && url.trim() && hostOf(site) !== hostOf(url));
+  const mismatch = gaMismatch || siteMismatch;
+
   const generate = useCallback(async () => {
     if (!propertyId && !site && !url.trim()) { setErr("Choose a GA4 property, a Search Console site, and/or a URL."); return; }
+    if (mismatch) { setErr("The selected GA4 property or Search Console site belongs to a different website. Fix the selection first."); return; }
     setBusy(true); setErr(""); setData(null);
     const out = { generatedAt: new Date().toISOString(), range: { start: s, end: e }, site, url };
     const jobs = [];
@@ -300,12 +169,17 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
     await Promise.all(jobs);
     if (!out.ga && !out.gsc && !out.audit && !out.llm) setErr("No data returned. Connect Google (for GA4/Search Console) and/or enter a site URL for the audit.");
     setData(out); setBusy(false);
-  }, [api, propertyId, site, url, s, e]);
+  }, [api, propertyId, site, url, s, e, mismatch]);
 
   const g = data && data.gsc;
   const ga = data && data.ga;
   const au = data && data.audit;
   const llm = data && data.llm;
+  const rdata = data && { ...data, overrides: { type: settings.type || undefined, listedOn: settings.listedOn, exclude: parseList(settings.exclude) } };
+  const profile = rdata && siteProfile(rdata);
+  const dirs = profile ? directoriesFor(profile) : [];
+  const localLeft = dirs.some((d) => d.local);
+  const effectiveType = settings.type || (clientFor(host) || {}).type || "";
 
   return (
     <>
@@ -313,7 +187,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
         <div className="rpt-row">
           {properties.length > 0 && (
             <label>GA4 property
-              <select className="inp" value={propertyId} onChange={(ev) => setPropertyId(ev.target.value)}>
+              <select className="inp" value={propertyId} onChange={(ev) => { setPicked((x) => ({ ...x, property: true })); setPropertyId(ev.target.value); }}>
                 <option value="">— none —</option>
                 {properties.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.id}</option>)}
               </select>
@@ -321,7 +195,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
           )}
           {sites.length > 0 && (
             <label>Search Console site
-              <select className="inp" value={site} onChange={(ev) => setSite(ev.target.value)}>
+              <select className="inp" value={site} onChange={(ev) => { setPicked((x) => ({ ...x, site: true })); setSite(ev.target.value); }}>
                 <option value="">— none —</option>
                 {sites.map((x) => <option key={x.siteUrl} value={x.siteUrl}>{x.siteUrl}</option>)}
               </select>
@@ -333,10 +207,35 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             <input className="inp" value={url} placeholder="https://example.com" onChange={(ev) => setUrl(ev.target.value)} />
           </label>
         </div>
+        {gaMismatch && <div className="err">⚠ GA4 property “{property.name}” tracks {property.websites.join(", ")}, not {host}. Pick the right property (or none).</div>}
+        {siteMismatch && <div className="err">⚠ Search Console site {site} is not {host}. Pick the matching site (or none).</div>}
+        {host && properties.length > 0 && !propertyId && !picked.property && <div className="muted small">No GA4 property found for {host}, so the report will leave out Google Analytics.</div>}
+        {host && (
+          <details className="rpt-settings">
+            <summary><b>Client details for {host}</b> <span className="muted small">— business type, directories already listed, keywords to leave out of recommendations (saved in this browser)</span></summary>
+            <div className="rpt-row">
+              <label>Business type
+                <select className="inp" value={settings.type} onChange={(ev) => updateSettings({ type: ev.target.value })}>
+                  <option value="">Auto{effectiveType ? ` (${(BUSINESS_TYPES.find((b) => b.id === effectiveType) || {}).label})` : ""}</option>
+                  {BUSINESS_TYPES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                </select>
+              </label>
+              <label>Keywords to leave out of recommendations (comma-separated)
+                <input className="inp" value={settings.exclude} placeholder="e.g. a brand or person the client no longer works with" onChange={(ev) => updateSettings({ exclude: ev.target.value })} />
+              </label>
+            </div>
+            <div className="m-label" style={{ marginTop: 8 }}>Already listed on (left out of the report)</div>
+            <div className="rpt-checkgrid">
+              {DIRECTORIES.map((d) => (
+                <label key={d.name} className="small"><input type="checkbox" checked={settings.listedOn.includes(d.name)} onChange={() => toggleListed(d.name)} /> {d.name}</label>
+              ))}
+            </div>
+          </details>
+        )}
         <div className="rpt-row">
           <label>From <input className="inp" type="date" value={s} onChange={(ev) => setS(ev.target.value)} /></label>
           <label>To <input className="inp" type="date" value={e} onChange={(ev) => setE(ev.target.value)} /></label>
-          <button className="btn primary" onClick={generate} disabled={busy}>{busy ? "Building report…" : "Generate report"}</button>
+          <button className="btn primary" onClick={generate} disabled={busy || mismatch}>{busy ? "Building report…" : "Generate report"}</button>
           {data && <button className="btn" onClick={() => window.print()}>⬇ Download / Print PDF</button>}
         </div>
         {err && <div className="err">⚠ {err}</div>}
@@ -472,7 +371,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             <section className="rpt-sec">
               <h2>Technical SEO health</h2>
               <div className="metrics">
-                <Metric label="Health score" value={au.score + "/100"} cur={au.score} prev={au.score} />
+                <Metric label="Health score" value={au.score + "/100"} />
                 <div className="metric"><div className="m-label">Pages crawled</div><div className="m-value">{au.pages ? au.pages.length : 0}</div></div>
                 <div className="metric"><div className="m-label">Failed / warnings</div><div className="m-value">{au.counts.fail} / {au.counts.warn}</div></div>
                 {typeof data.dr === "number" && <div className="metric"><div className="m-label">Ahrefs Domain Rating</div><div className="m-value">{data.dr}</div></div>}
@@ -493,7 +392,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               <h2>AI / LLM visibility readiness</h2>
               <p className="muted small">How well the site is structured for AI search engines (ChatGPT, Gemini, Google AI). Computed from the page itself.</p>
               <div className="metrics">
-                <Metric label="AI readiness" value={llm.score + "/100"} cur={llm.score} prev={llm.score} />
+                <Metric label="AI readiness" value={llm.score + "/100"} />
                 <div className="metric"><div className="m-label">Grade</div><div className="m-value">{llm.grade}</div></div>
               </div>
               {llm.schemaTypes && llm.schemaTypes.length > 0 && (
@@ -518,7 +417,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
           )}
 
           {(au || llm || g) && (() => {
-            const steps = buildRoadmap(data);
+            const steps = buildRoadmap(rdata, profile);
             return (
               <section className="rpt-sec">
                 <h2>SEO improvement roadmap</h2>
@@ -543,14 +442,14 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             );
           })()}
 
-          {g && buildKeywordOpportunities(data).length > 0 && (
+          {g && buildKeywordOpportunities(rdata, profile).length > 0 && (
             <section className="rpt-sec">
               <h2>Keyword opportunities — best organic upside</h2>
               <p className="muted small">Queries already ranking on page 1–2 (positions 4–20) — the realistic competitive wins, ordered by upside.</p>
               <table className="rpt-table">
                 <thead><tr><th>Keyword</th><th>Position</th><th>Impressions/mo</th><th>Clicks</th><th>Est. extra clicks if won</th></tr></thead>
                 <tbody>
-                  {buildKeywordOpportunities(data).map((k, i) => (
+                  {buildKeywordOpportunities(rdata, profile).map((k, i) => (
                     <tr key={i}><td><b>{k.query}</b></td><td>{k.position.toFixed(1)}</td><td>{num(k.impressions)}</td><td>{num(k.clicks)}</td><td>+{num(k.upside)}/mo</td></tr>
                   ))}
                 </tbody>
@@ -558,27 +457,31 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             </section>
           )}
 
+          {dirs.length > 0 && (
           <section className="rpt-sec">
-            <h2>External links &amp; local directories to build</h2>
-            <p className="muted small">Claim and complete these to grow referral traffic, local rankings and AI visibility. Use identical business name, address, phone and URL on every one (consistent NAP).</p>
+            <h2>{localLeft ? <>External links &amp; local directories to build</> : <>External links &amp; PR to build</>}</h2>
+            <p className="muted small">{localLeft
+              ? "Claim and complete these to grow referral traffic, local rankings and AI visibility. Use identical business name, address, phone and URL on every one (consistent NAP)."
+              : "Earn these links and mentions to grow referral traffic, authority and AI visibility."}</p>
             <table className="rpt-table">
               <thead><tr><th>Directory / channel</th><th>Type</th><th>Why it helps</th></tr></thead>
               <tbody>
-                {DIRECTORIES.map((d, i) => (
+                {dirs.map((d, i) => (
                   <tr key={i}><td>{d.url ? <a href={d.url} target="_blank" rel="noopener noreferrer"><b>{d.name}</b></a> : <b>{d.name}</b>}</td><td>{d.type}</td><td className="muted small">{d.why}</td></tr>
                 ))}
               </tbody>
             </table>
           </section>
+          )}
 
-          {buildContentIdeas(data).length > 0 && (
+          {buildContentIdeas(rdata, profile).length > 0 && (
             <section className="rpt-sec">
               <h2>Content suggestions</h2>
               <p className="muted small">Specific content to create next, generated from your real queries and gaps.</p>
               <table className="rpt-table">
                 <thead><tr><th>Content idea</th><th>Type</th><th>Target keyword</th></tr></thead>
                 <tbody>
-                  {buildContentIdeas(data).map((c, i) => (
+                  {buildContentIdeas(rdata, profile).map((c, i) => (
                     <tr key={i}><td><b>{c.title}</b>{c.why && <div className="muted small">{c.why}</div>}</td><td>{c.type}</td><td>{c.keyword || "—"}</td></tr>
                   ))}
                 </tbody>

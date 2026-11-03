@@ -116,6 +116,11 @@ input[type="date"].inp{padding:9px 12px}
 .rpt-controls{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px;display:flex;flex-direction:column;gap:10px}
 .rpt-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
 .rpt-row label{flex:1;min-width:180px}
+.rpt-settings{border-top:1px solid var(--line);padding-top:10px}
+.rpt-settings summary{cursor:pointer;font-size:13px}
+.rpt-settings .rpt-row{margin-top:10px}
+.rpt-checkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 14px;margin-top:6px}
+.rpt-controls .rpt-checkgrid label{flex-direction:row;align-items:center;gap:6px;text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink)}
 .rpt-cover{background:var(--ink);color:#fff;border-radius:16px;padding:30px;margin-bottom:18px}
 .rpt-brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px;margin-bottom:14px}
 .rpt-logo{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--lime);color:var(--ink);font-weight:900;font-size:20px;font-family:Georgia,serif}
