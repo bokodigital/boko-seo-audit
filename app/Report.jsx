@@ -90,8 +90,11 @@ export function FlowFunnel({ stages }) {
 
 // Per-page flow: for each top page, entries (where journeys start) vs total views.
 export function PageFlow({ entries, views }) {
-  const eMap = Object.fromEntries((entries || []).map((e) => [e.page, e.sessions]));
-  const merged = (views || []).slice(0, 8).map((v) => ({ page: v.page, views: v.views, entries: eMap[v.page] || 0 }));
+  // GA4 landing pages drop the trailing slash ("/spa-packages") that page paths keep ("/spa-packages/").
+  const key = (p) => (p && p.length > 1 ? p.replace(/\/+$/, "") : p);
+  const eMap = {};
+  (entries || []).forEach((e) => { const k = key(e.page); eMap[k] = (eMap[k] || 0) + e.sessions; });
+  const merged = (views || []).slice(0, 8).map((v) => ({ page: v.page, views: v.views, entries: eMap[key(v.page)] || 0 }));
   if (!merged.length) return <div className="muted small">No page data for this period.</div>;
   const max = Math.max(...merged.map((m) => m.views), 1);
   return (
