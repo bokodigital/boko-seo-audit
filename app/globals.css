@@ -46,7 +46,7 @@ h1.title{font-size:32px;font-weight:900;letter-spacing:-.5px;margin:0 0 8px;colo
 .cat h3{font-size:14px;font-weight:800;margin:12px 0 6px}
 .chk{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .chk:first-of-type{border-top:0}
-.pill{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:0 0 auto;margin-top:1px}
+.pill{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 9px;border-radius:999px;white-space:nowrap;flex:0 0 auto;margin-top:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .p-pass{background:var(--lime);color:var(--ink)}
 .p-warn{background:var(--white);color:var(--ink);border:1px solid var(--line)}
 .p-notice{background:var(--lilac);color:var(--muted);border:1px solid var(--line)}
@@ -56,7 +56,7 @@ h1.title{font-size:32px;font-weight:900;letter-spacing:-.5px;margin:0 0 8px;colo
 .chk .rec{font-size:12.5px;margin-top:3px}
 
 .imp{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:11px;margin-bottom:8px}
-.sev{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:999px;flex:0 0 auto;margin-top:1px}
+.sev{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:999px;flex:0 0 auto;margin-top:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .sev.high{background:var(--ink);color:#fff}
 .sev.medium{background:var(--lime);color:var(--ink)}
 .imp b{font-size:14px}
