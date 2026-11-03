@@ -5,6 +5,8 @@ import { BUSINESS_TYPES, DIRECTORIES, PHASES, siteProfile, directoriesFor, parse
 import { clientFor, hostOf } from "@/lib/clients";
 
 const num = (n) => Number(n || 0).toLocaleString();
+const SEV_RANK = { high: 0, medium: 1, low: 2 };
+const bySeverity = (a, b) => (SEV_RANK[a.severity] ?? 3) - (SEV_RANK[b.severity] ?? 3);
 const pct = (n) => (Number(n || 0) * 100).toFixed(1) + "%";
 const signed = (n) => (n >= 0 ? "+" : "") + num(Math.abs(n) === n ? n : n);
 
@@ -16,7 +18,7 @@ function Delta({ cur, prev, lowerBetter, suffix }) {
   const flat = d === 0;
   const cls = flat ? "flat" : good ? "up" : "down";
   const arrow = flat ? "→" : d > 0 ? "▲" : "▼";
-  const val = suffix === "%" ? (d >= 0 ? "+" : "") + (d * 100).toFixed(1) + "%" : (d >= 0 ? "+" : "") + num(d);
+  const val = suffix === "%" ? (d >= 0 ? "+" : "") + (d * 100).toFixed(1) + "%" : suffix === "pos" ? (d >= 0 ? "+" : "") + d.toFixed(1) : (d >= 0 ? "+" : "") + num(d);
   return <span className={"delta " + cls}>{arrow} {val}</span>;
 }
 
@@ -335,32 +337,34 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
             <section className="rpt-sec">
               <h2>User journey</h2>
               <p className="muted small">How visitors move through the site — the conversion funnel, where journeys begin, and the pages they reach. (A literal click-by-click path needs GA4 Path Exploration; this is the API-available equivalent.)</p>
-              {ga.journey && (
+              {ga.journey && (() => {
+                const j = ga.journey;
+                // Every stage counts sessions (or purchases), never raw event totals, so the % are real rates.
+                const stages = [
+                  { label: "Sessions", value: j.sessions || j.users || 0 },
+                  { label: "Engaged sessions", value: j.engaged || 0 },
+                  ...(j.keyEventSessions != null ? [{ label: "Sessions with a key event", value: j.keyEventSessions }] : []),
+                  ...(j.purchases ? [{ label: "Purchases", value: j.purchases }] : []),
+                ];
+                return (
                 <>
                   <h3>User flow (start → end)</h3>
                   <div className="muted small" style={{ marginBottom: 6 }}>{num(ga.journey.users)} active users across the period.</div>
-                  <FlowFunnel stages={[
-                    { label: "Sessions", value: ga.journey.sessions || ga.journey.users },
-                    { label: "Engaged sessions", value: ga.journey.engaged },
-                    { label: "Key events (conversions)", value: ga.journey.keyEvents },
-                  ]} />
+                  <FlowFunnel stages={stages} />
                   <div className="muted small">Visitors arrive → engage → convert. Percentages show how many continue to each stage.</div>
                   <div className="rpt-grid" style={{ marginTop: 14 }}>
                     <div className="rpt-card"><h3>Funnel by stage</h3>
-                      <Bars rows={[
-                        { label: "Sessions", value: ga.journey.sessions || ga.journey.users || 0 },
-                        { label: "Engaged sessions", value: ga.journey.engaged || 0 },
-                        { label: "Key events (conversions)", value: ga.journey.keyEvents || 0 },
-                      ]} />
+                      <Bars rows={stages} />
                     </div>
                     <div className="rpt-card"><h3>Stage breakdown</h3>
                       <table className="rpt-table"><thead><tr><th>Stage</th><th>Count</th><th>% of sessions</th></tr></thead><tbody>
-                        {(() => { const s = ga.journey.sessions || ga.journey.users || 0; return [["Sessions", s], ["Engaged sessions", ga.journey.engaged || 0], ["Key events (conversions)", ga.journey.keyEvents || 0]].map((row, i) => <tr key={i}><td>{row[0]}</td><td>{num(row[1])}</td><td>{s ? Math.round((row[1] / s) * 100) : 0}%</td></tr>); })()}
+                        {stages.map((row, i) => <tr key={i}><td>{row.label}</td><td>{num(row.value)}</td><td>{stages[0].value ? (row.value / stages[0].value * 100).toFixed(row.value / stages[0].value < 0.1 ? 1 : 0) : 0}%</td></tr>)}
                       </tbody></table>
                     </div>
                   </div>
                 </>
-              )}
+                );
+              })()}
               <h3 style={{ marginTop: 16 }}>Flow by page — entries vs views</h3>
               <p className="muted small" style={{ marginTop: 0 }}>For each top page: how many visitors <b>start</b> their journey there (entries) vs how many <b>reach</b> it overall (views).</p>
               <PageFlow entries={ga.landingPages} views={ga.topPages} />
@@ -379,7 +383,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               {au.improvements && au.improvements.length > 0 && (
                 <>
                   <h3>Priority fixes</h3>
-                  {au.improvements.slice(0, 8).map((im, i) => (
+                  {[...au.improvements].sort(bySeverity).slice(0, 8).map((im, i) => (
                     <div className="rpt-issue" key={i}><span className={"sev " + im.severity}>{im.severity}</span><div><b>{im.label}</b>{im.recommendation && <div className="r">→ {im.recommendation}</div>}</div></div>
                   ))}
                 </>
@@ -410,7 +414,7 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               {llm.recommendations && llm.recommendations.length > 0 && (
                 <>
                   <h3>Recommendations</h3>
-                  {llm.recommendations.map((r, i) => <div className="rpt-issue" key={i}><span className={"sev " + r.severity}>{r.severity}</span><div><b>{r.label}</b><div className="r">→ {r.recommendation}</div></div></div>)}
+                  {[...llm.recommendations].sort(bySeverity).map((r, i) => <div className="rpt-issue" key={i}><span className={"sev " + r.severity}>{r.severity}</span><div><b>{r.label}</b><div className="r">→ {r.recommendation}</div></div></div>)}
                 </>
               )}
             </section>
@@ -464,10 +468,10 @@ export default function Report({ api, properties = [], sites = [], defaultUrl = 
               ? "Claim and complete these to grow referral traffic, local rankings and AI visibility. Use identical business name, address, phone and URL on every one (consistent NAP)."
               : "Earn these links and mentions to grow referral traffic, authority and AI visibility."}</p>
             <table className="rpt-table">
-              <thead><tr><th>Directory / channel</th><th>Type</th><th>Why it helps</th></tr></thead>
+              <thead><tr><th>Directory / channel</th><th>Type</th><th style={{ textAlign: "left" }}>Why it helps</th></tr></thead>
               <tbody>
                 {dirs.map((d, i) => (
-                  <tr key={i}><td>{d.url ? <a href={d.url} target="_blank" rel="noopener noreferrer"><b>{d.name}</b></a> : <b>{d.name}</b>}</td><td>{d.type}</td><td className="muted small">{d.why}</td></tr>
+                  <tr key={i}><td style={{ width: "28%" }}>{d.url ? <a href={d.url} target="_blank" rel="noopener noreferrer"><b>{d.name}</b></a> : <b>{d.name}</b>}</td><td>{d.type}</td><td className="muted small" style={{ textAlign: "left", whiteSpace: "normal" }}>{d.why}</td></tr>
                 ))}
               </tbody>
             </table>
